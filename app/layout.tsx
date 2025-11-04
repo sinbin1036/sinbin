@@ -14,11 +14,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Sinbin | Guardrails for high-velocity teams",
+    default: "Sinbin | 고속 팀을 위한 가드레일",
     template: "%s | Sinbin",
   },
   description:
-    "Sinbin centralizes playbooks, guardrails, and live context so frontline teams can move fast without breaking trust.",
+    "Sinbin은 플레이북, 가드레일, 실시간 컨텍스트를 한곳에 모아 프론트라인 팀이 신뢰를 해치지 않고 더 빠르게 일할 수 있게 돕습니다.",
 };
 
 export default function RootLayout({
@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ko">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
