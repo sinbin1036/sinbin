@@ -175,12 +175,16 @@ export default function Home() {
 
           <form
             aria-label="통합 검색"
+            action="https://www.google.com/search"
+            method="GET"
             className="flex w-full max-w-2xl items-center gap-4 rounded-full border border-stone-300/80 bg-stone-50/80 px-5 py-3.5 shadow-[0_25px_45px_-35px_rgba(41,37,36,0.65)] backdrop-blur-sm transition hover:border-stone-400/80 focus-within:border-stone-500/80 dark:border-stone-700/80 dark:bg-stone-900/60 dark:shadow-[0_25px_55px_-40px_rgba(250,250,249,0.35)]"
           >
             <SearchIcon className="h-5 w-5 text-stone-500 dark:text-stone-400" />
             <input
               type="search"
+              name="q"
               placeholder="Sinbin에서 검색하거나 URL을 입력하세요"
+              autoComplete="off"
               className="flex-1 bg-transparent text-base text-stone-800 outline-none placeholder:text-stone-400 dark:text-stone-100 dark:placeholder:text-stone-500"
             />
             <div className="flex items-center gap-2">
