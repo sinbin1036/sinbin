@@ -1,53 +1,5 @@
-const quickLinks = [
-  {
-    label: "인박스 분류",
-    href: "#",
-    description: "Slack 큐",
-    symbol: "📬",
-  },
-  {
-    label: "RMA 플레이북",
-    href: "#",
-    description: "Notion 문서",
-    symbol: "📘",
-  },
-  {
-    label: "에스컬레이션 매트릭스",
-    href: "#",
-    description: "Confluence",
-    symbol: "🧭",
-  },
-  {
-    label: "매출 운영 리포트",
-    href: "#",
-    description: "Looker 보드",
-    symbol: "📊",
-  },
-  {
-    label: "정책 업데이트",
-    href: "#",
-    description: "Sinbin 허브",
-    symbol: "⚙️",
-  },
-  {
-    label: "실시간 인시던트",
-    href: "#",
-    description: "PagerDuty",
-    symbol: "🚨",
-  },
-  {
-    label: "팀 핸드북",
-    href: "#",
-    description: "GitBook",
-    symbol: "📖",
-  },
-  {
-    label: "모든 바로가기",
-    href: "#",
-    description: "전체 보기",
-    symbol: "➕",
-  },
-];
+import QuickLaunch from "@/app/components/QuickLaunch";
+import type React from "react";
 
 const workspaceCollections = [
   {
@@ -142,20 +94,6 @@ function SparkleIcon(props: IconProps) {
   );
 }
 
-function GridIcon(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
-      <path
-        d="M4 4h5v5H4Zm11 0h5v5h-5ZM4 15h5v5H4Zm11 0h5v5h-5Z"
-        fill="none"
-        stroke="currentColor"
-        strokeLinejoin="round"
-        strokeWidth={1.5}
-      />
-    </svg>
-  );
-}
-
 export default function DashboardScreen() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-100 via-stone-200 to-stone-100 text-stone-900 transition-colors dark:from-stone-950 dark:via-stone-900 dark:to-stone-950 dark:text-stone-100">
@@ -205,46 +143,7 @@ export default function DashboardScreen() {
             </div>
           </form>
 
-          <section aria-labelledby="quick-links-heading" className="w-full max-w-3xl">
-            <div className="mb-4 flex items-center justify-between px-1">
-              <div>
-                <h2
-                  id="quick-links-heading"
-                  className="text-sm font-semibold uppercase tracking-[0.3em] text-stone-500 dark:text-stone-400"
-                >
-                  바로가기
-                </h2>
-                <p className="text-xs text-stone-500 dark:text-stone-500">
-                  자주 방문하는 링크를 드래그해 순서를 바꿔보세요.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-stone-300/70 px-3 py-1.5 text-xs font-medium text-stone-600 transition hover:border-stone-400 hover:text-stone-800 dark:border-stone-700 dark:text-stone-300 dark:hover:border-stone-600 dark:hover:text-stone-100"
-              >
-                <GridIcon className="h-3.5 w-3.5" />
-                사용자 지정
-              </button>
-            </div>
-            <ul className="grid gap-3 sm:grid-cols-4">
-              {quickLinks.map((item) => (
-                <li key={item.label}>
-                  <a
-                    href={item.href}
-                    className="group flex flex-col gap-2 rounded-3xl border border-stone-200/80 bg-stone-50/80 p-4 transition hover:-translate-y-1 hover:border-stone-400/80 hover:bg-stone-100/80 dark:border-stone-800/70 dark:bg-stone-900/60 dark:hover:border-stone-600 dark:hover:bg-stone-800/70"
-                  >
-                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-200/80 text-lg transition group-hover:scale-105 group-hover:bg-stone-300/80 dark:bg-stone-800/70 dark:group-hover:bg-stone-700">
-                      {item.symbol}
-                    </span>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-medium text-stone-700 dark:text-stone-100">{item.label}</span>
-                      <span className="text-xs text-stone-500 dark:text-stone-400">{item.description}</span>
-                    </div>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
+          <QuickLaunch />
         </section>
 
         <section className="grid gap-6 pb-4 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
