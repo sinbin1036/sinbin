@@ -1,9 +1,9 @@
-from fastapi import FastAPI
+﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .db import Base, engine
-from .routers import auth
+from .routers import auth, quick_links
 
 settings = get_settings()
 
@@ -22,9 +22,9 @@ app.add_middleware(
 Base.metadata.create_all(bind=engine)
 
 app.include_router(auth.router)
+app.include_router(quick_links.router)
 
 
 @app.get("/health")
 async def health_check():
     return {"ok": True}
-
