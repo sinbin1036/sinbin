@@ -1,6 +1,4 @@
-'use client';
-
-import { getSupabaseClient } from '@/lib/supabase/client';
+﻿"use client";
 
 export type QuickLink = {
   id: string;
@@ -10,44 +8,62 @@ export type QuickLink = {
   symbol: string;
 };
 
-export type QuickLinkPayload = Omit<QuickLink, 'id'>;
+export type QuickLinkPayload = Omit<QuickLink, "id">;
 
-export async function getQuickLinks(): Promise<QuickLink[]> {
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from('quick_links')
-    .select('id, label, href, description, symbol')
-    .order('label', { ascending: true });
+function getApiBase() {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== "undefined") return window.location.origin;
+  return "";
+}
 
-  if (error) {
-    throw new Error(error.message);
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const base = getApiBase();
+  const url = `${base}${path}`;
+  const headers = {
+    "Content-Type": "application/json",
+    ...(init?.headers || {}),
+  } as Record<string, string>;
+
+  const response = await fetch(url, {
+    credentials: "include",
+    ...init,
+    headers,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Request failed (${response.status}): ${text || response.statusText}`);
   }
 
-  return data ?? [];
+  const json = await response.json();
+  if (!json.ok) {
+    const message = json.error?.message || "요청이 실패했습니다.";
+    throw new Error(message);
+  }
+
+  return json.data as T;
+}
+
+export async function getQuickLinks(): Promise<QuickLink[]> {
+  return request<QuickLink[]>("/quick-links");
 }
 
 export async function createQuickLink(payload: QuickLinkPayload) {
-  const supabase = getSupabaseClient();
-  const { error } = await supabase.from('quick_links').insert(payload);
-  if (error) {
-    throw new Error(error.message);
-  }
+  await request<QuickLink>("/quick-links", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function updateQuickLink(id: string, payload: QuickLinkPayload) {
-  const supabase = getSupabaseClient();
-  const { error } = await supabase.from('quick_links').update(payload).eq('id', id);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  await request<QuickLink>(`/quick-links/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function deleteQuickLink(id: string) {
-  const supabase = getSupabaseClient();
-  const { error } = await supabase.from('quick_links').delete().eq('id', id);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  await request<null>(`/quick-links/${id}`, {
+    method: "DELETE",
+  });
 }
