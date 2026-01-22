@@ -10,8 +10,12 @@
 !.yarn/releases
 !.yarn/versions
 
-# json파일
+# json파일 (일부 필수 파일은 추적)
 *.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.*.json
 
 # testing
 /coverage
