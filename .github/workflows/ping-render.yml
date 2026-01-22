@@ -1,0 +1,26 @@
+name: Ping Render (Frontend + Backend)
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # 5분마다
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Backend
+        run: |
+          set -e
+          URL="https://sinbin-api.onrender.com/health"
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+          echo "Backend HTTP $code"
+          if [ "$code" -lt 200 ] || [ "$code" -ge 400 ]; then exit 1; fi
+
+      - name: Ping Frontend
+        run: |
+          set -e
+          URL="https://sinbin-dashboard.onrender.com"
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+          echo "Frontend HTTP $code"
+          if [ "$code" -lt 200 ] || [ "$code" -ge 400 ]; then exit 1; fi
