@@ -11,9 +11,7 @@ export type QuickLink = {
 export type QuickLinkPayload = Omit<QuickLink, "id">;
 
 function getApiBase() {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (typeof window !== "undefined") return window.location.origin;
-  return "";
+  return window.location.origin;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
