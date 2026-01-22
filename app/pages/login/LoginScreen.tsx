@@ -10,8 +10,7 @@ export default function LoginScreen() {
   const showUnauthorized = error === "unauthorized";
 
   const handleLogin = useCallback(() => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? window.location.origin;
-    const loginTarget = new URL("/auth/github/login", baseUrl);
+    const loginTarget = new URL("/auth/github/login", window.location.origin);
 
     if (rememberMe) {
       loginTarget.searchParams.set("remember", "1");
