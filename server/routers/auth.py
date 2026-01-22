@@ -94,7 +94,13 @@ async def github_callback(code: str, state: str, db: Session = Depends(get_db)) 
             detail="GitHub API request failed.",
         ) from exc
 
-    user = _upsert_github_user(db, profile)
+    try:
+        user = _update_existing_user(db, profile)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_403_FORBIDDEN:
+            redirect_url = f"{settings.frontend_origin}?error=unauthorized"
+            return RedirectResponse(url=redirect_url, status_code=302)
+        raise
     expires_delta = timedelta(days=30) if state_payload.remember else timedelta(hours=2)
     token = create_access_token(
         {"sub": str(user.id), "github_login": user.github_login},
@@ -151,27 +157,22 @@ async def _fetch_github_profile(access_token: str) -> dict:
     return resp.json()
 
 
-def _upsert_github_user(db: Session, profile: dict) -> User:
-    """Insert or update a user record using GitHub profile information."""
+def _update_existing_user(db: Session, profile: dict) -> User:
+    """Update an existing user record using GitHub profile information."""
     github_id = str(profile["id"])
     github_login = profile["login"]
     avatar_url = profile.get("avatar_url")
 
     user = db.query(User).filter(User.github_id == github_id).first()
-    now = datetime.now(timezone.utc)
     if not user:
-        user = User(
-            github_id=github_id,
-            github_login=github_login,
-            avatar_url=avatar_url,
-            created_at=now,
-            last_login_at=now,
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Unauthorized account.",
         )
-        db.add(user)
-    else:
-        user.github_login = github_login
-        user.avatar_url = avatar_url
-        user.last_login_at = now
+    now = datetime.now(timezone.utc)
+    user.github_login = github_login
+    user.avatar_url = avatar_url
+    user.last_login_at = now
 
     db.commit()
     db.refresh(user)

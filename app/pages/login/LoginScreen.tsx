@@ -1,9 +1,13 @@
 'use client';
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
 
 export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(false);
+  const searchParams = useSearchParams();
+  const error = searchParams?.get("error");
+  const showUnauthorized = error === "unauthorized";
 
   const handleLogin = useCallback(() => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? window.location.origin;
@@ -29,6 +33,14 @@ export default function LoginScreen() {
               GitHub 계정으로 인증하면 개인화된 Sinbin 홈이 열립니다.
             </p>
           </div>
+          {showUnauthorized ? (
+            <div
+              role="alert"
+              className="mb-6 rounded-2xl border border-rose-200/80 bg-rose-50/80 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+            >
+              사용가능한 유저가 아닙니다.
+            </div>
+          ) : null}
 
           <div className="mb-6 space-y-3">
             <label className="inline-flex items-center gap-3 text-sm text-stone-600 dark:text-stone-300">
