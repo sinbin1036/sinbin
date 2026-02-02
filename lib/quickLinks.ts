@@ -38,25 +38,25 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getQuickLinks(): Promise<QuickLink[]> {
-  return request<QuickLink[]>("/quick-links");
+  return request<QuickLink[]>("/api/quick-links");
 }
 
 export async function createQuickLink(payload: QuickLinkPayload) {
-  await request<QuickLink>("/quick-links", {
+  await request<QuickLink>("/api/quick-links", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
 export async function updateQuickLink(id: string, payload: QuickLinkPayload) {
-  await request<QuickLink>(`/quick-links/${id}`, {
+  await request<QuickLink>(`/api/quick-links/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
 }
 
 export async function deleteQuickLink(id: string) {
-  await request<null>(`/quick-links/${id}`, {
+  await request<null>(`/api/quick-links/${id}`, {
     method: "DELETE",
   });
 }
