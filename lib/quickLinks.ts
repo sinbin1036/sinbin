@@ -10,19 +10,14 @@ export type QuickLink = {
 
 export type QuickLinkPayload = Omit<QuickLink, "id">;
 
-function getApiBase() {
-  return window.location.origin;
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const base = getApiBase();
-  const url = `${base}${path}`;
-  const headers = {
-    "Content-Type": "application/json",
-    ...(init?.headers || {}),
-  } as Record<string, string>;
+  const hasBody = init?.body != null;
+  const headers = init?.headers ? new Headers(init.headers) : hasBody ? new Headers() : undefined;
+  if (hasBody && headers && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
 
-  const response = await fetch(url, {
+  const response = await fetch(path, {
     credentials: "include",
     ...init,
     headers,
@@ -43,25 +38,25 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getQuickLinks(): Promise<QuickLink[]> {
-  return request<QuickLink[]>("/quick-links");
+  return request<QuickLink[]>("/api/quick-links");
 }
 
 export async function createQuickLink(payload: QuickLinkPayload) {
-  await request<QuickLink>("/quick-links", {
+  await request<QuickLink>("/api/quick-links", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
 export async function updateQuickLink(id: string, payload: QuickLinkPayload) {
-  await request<QuickLink>(`/quick-links/${id}`, {
+  await request<QuickLink>(`/api/quick-links/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
 }
 
 export async function deleteQuickLink(id: string) {
-  await request<null>(`/quick-links/${id}`, {
+  await request<null>(`/api/quick-links/${id}`, {
     method: "DELETE",
   });
 }
