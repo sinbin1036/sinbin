@@ -1,4 +1,4 @@
-import QuickLaunch from "@/app/components/QuickLaunch";
+// import QuickLaunch from "@/app/components/QuickLaunch";
 import type React from "react";
 
 const workspaceCollections = [
@@ -143,7 +143,7 @@ export default function DashboardScreen() {
             </div>
           </form>
 
-          <QuickLaunch />
+          {/* <QuickLaunch /> */}
         </section>
 
         <section className="grid gap-6 pb-4 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
