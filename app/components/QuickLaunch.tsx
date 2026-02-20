@@ -136,7 +136,7 @@ export default function QuickLaunch() {
       return Array.from({ length: 6 }).map((_, idx) => (
         <li
           key={idx}
-          className="h-28 rounded-3xl border border-stone-200/80 bg-stone-100/70 animate-pulse dark:border-stone-800/70 dark:bg-stone-900/70"
+          className="min-h-[128px] rounded-2xl border border-stone-200/80 bg-stone-100/70 animate-pulse dark:border-stone-800/70 dark:bg-stone-900/70"
         />
       ));
     }
@@ -188,16 +188,16 @@ export default function QuickLaunch() {
       );
     }
 
-    return visibleLinks.map((item) => {
+      return visibleLinks.map((item) => {
       const favicon = item.symbol?.startsWith('http') ? item.symbol : toFaviconUrl(item.href);
       const fallbackLetter = item.label?.[0] ?? '🔗';
       const category = item.category ?? '기타';
 
       return (
         <li key={item.id}>
-          <div className="group flex h-[128px] max-w-[220px] mx-auto flex-col justify-between gap-2 rounded-2xl border border-stone-200/80 bg-stone-50/80 p-3 text-center transition hover:-translate-y-1 hover:border-stone-400/80 hover:bg-stone-100/80 dark:border-stone-800/70 dark:bg-stone-900/60 dark:hover:border-stone-600 dark:hover:bg-stone-800/70">
-            <a href={item.href} target="_blank" rel="noreferrer" className="flex flex-1 flex-col items-center justify-center gap-1.5">
-              <span className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-stone-200/80 text-lg transition group-hover:scale-105 group-hover:bg-stone-300/80 dark:bg-stone-800/70 dark:group-hover:bg-stone-700">
+          <div className="group flex min-h-[128px] w-full flex-col justify-between gap-2 rounded-2xl border border-stone-200/80 bg-stone-50/80 p-3 text-center transition hover:-translate-y-1 hover:border-stone-400/80 hover:bg-stone-100/80 dark:border-stone-800/70 dark:bg-stone-900/60 dark:hover:border-stone-600 dark:hover:bg-stone-800/70">
+            <a href={item.href} target="_blank" rel="noreferrer" className="flex flex-1 flex-col items-center justify-center gap-1.5 py-1">
+              <span className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-stone-200/80 text-lg transition group-hover:scale-105 group-hover:bg-stone-300/80 dark:bg-stone-800/70 dark:group-hover:bg-stone-700">
                 {favicon ? (
                   <img
                     src={favicon}
@@ -209,7 +209,7 @@ export default function QuickLaunch() {
                   fallbackLetter
                 )}
               </span>
-              <span className="line-clamp-1 text-xs font-medium text-stone-700 dark:text-stone-100">{item.label}</span>
+              <span className="line-clamp-2 w-full text-xs font-medium text-stone-700 dark:text-stone-100">{item.label}</span>
               <span className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${CATEGORY_COLORS[category]}`}>
                 {category}
               </span>
@@ -218,7 +218,7 @@ export default function QuickLaunch() {
               <button
                 type="button"
                 onClick={() => openEdit(item)}
-                className="rounded-full border border-stone-200 px-2 py-1 transition hover:border-stone-400 hover:text-stone-800 dark:border-stone-700 dark:hover:border-stone-600 dark:hover:text-stone-100"
+                className="flex-1 rounded-full border border-stone-200 px-2 py-1 transition hover:border-stone-400 hover:text-stone-800 dark:border-stone-700 dark:hover:border-stone-600 dark:hover:text-stone-100"
               >
                 수정
               </button>
@@ -226,7 +226,7 @@ export default function QuickLaunch() {
                 type="button"
                 onClick={() => handleDelete(item.id)}
                 disabled={submitting}
-                className="rounded-full border border-stone-200 px-2 py-1 transition hover:border-stone-400 hover:text-stone-800 disabled:opacity-50 dark:border-stone-700 dark:hover:border-stone-600 dark:hover:text-red-200"
+                className="flex-1 rounded-full border border-stone-200 px-2 py-1 transition hover:border-stone-400 hover:text-stone-800 disabled:opacity-50 dark:border-stone-700 dark:hover:border-stone-600 dark:hover:text-red-200"
               >
                 삭제
               </button>
@@ -240,7 +240,7 @@ export default function QuickLaunch() {
   const tabs: ActiveTab[] = [...QUICK_LINK_CATEGORIES];
 
   return (
-    <section aria-labelledby="quick-links-heading" className="w-full max-w-2xl">
+    <section aria-labelledby="quick-links-heading" className="w-full">
       <div className="mb-4 flex items-center justify-between px-1">
         <div>
           <h2
@@ -304,7 +304,7 @@ export default function QuickLaunch() {
         })}
       </div>
 
-      <ul className="grid gap-3 sm:grid-cols-4">{renderGridContent()}</ul>
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">{renderGridContent()}</ul>
 
       {formOpen ? (
         <div
