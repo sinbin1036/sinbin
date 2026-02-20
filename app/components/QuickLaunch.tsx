@@ -196,7 +196,7 @@ export default function QuickLaunch() {
       return (
         <li key={item.id}>
           <div className="group flex min-h-[128px] w-full flex-col justify-between gap-2 rounded-2xl border border-stone-200/80 bg-stone-50/80 p-3 text-center transition hover:-translate-y-1 hover:border-stone-400/80 hover:bg-stone-100/80 dark:border-stone-800/70 dark:bg-stone-900/60 dark:hover:border-stone-600 dark:hover:bg-stone-800/70">
-            <a href={item.href} target="_blank" rel="noreferrer" className="flex flex-1 flex-col items-center justify-center gap-1.5 py-1">
+            <a href={item.href} className="flex flex-1 flex-col items-center justify-center gap-1.5 py-1">
               <span className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-stone-200/80 text-lg transition group-hover:scale-105 group-hover:bg-stone-300/80 dark:bg-stone-800/70 dark:group-hover:bg-stone-700">
                 {favicon ? (
                   <img
