@@ -1,4 +1,7 @@
-﻿"use client";
+"use client";
+
+export const QUICK_LINK_CATEGORIES = ['AI', 'Dev', 'Web', '기타'] as const;
+export type QuickLinkCategory = (typeof QUICK_LINK_CATEGORIES)[number];
 
 export type QuickLink = {
   id: string;
@@ -6,6 +9,7 @@ export type QuickLink = {
   href: string;
   description: string;
   symbol: string;
+  category: QuickLinkCategory;
 };
 
 export type QuickLinkPayload = Omit<QuickLink, "id">;
