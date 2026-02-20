@@ -1,15 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Profile } from '../components/Profile';
-import { Logo } from '../components/Logo';
-import { LocationSelector } from '../components/LocationSelector';
+import { Profile } from '../../components/Profile';
+import { Logo } from '../../components/Logo';
+import { LocationSelector } from '../../components/LocationSelector';
 import { Edit3 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
-import { useBackground } from '../lib/useBackground';
-import { BackgroundSelection } from '../components/BackgroundSelector';
-import framesvgPaths from '../imports/svg-wrlpobapsl';
+import { useBackground } from '../../lib/useBackground';
+import { BackgroundSelection } from '../../components/BackgroundSelector';
+import framesvgPaths from '../../imports/svg-wrlpobapsl';
 
 interface DashboardProps {
   isAuthenticated: boolean;
