@@ -1,5 +1,6 @@
 import QuickLaunch from "@/app/components/QuickLaunch";
 import UnifiedSearch from "@/app/components/UnifiedSearch";
+import LogoutButton from "@/app/components/LogoutButton";
 
 const workspaceCollections = [
   {
@@ -129,6 +130,7 @@ export default function DashboardScreen() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <LogoutButton />
             <a href="#" className="transition hover:text-stone-700 dark:hover:text-stone-200">
               개인정보 처리방침
             </a>
@@ -144,4 +146,3 @@ export default function DashboardScreen() {
     </div>
   );
 }
-
