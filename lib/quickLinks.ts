@@ -1,5 +1,7 @@
 "use client";
 
+import { getSupabaseClient } from '@/lib/supabase/client';
+
 export const QUICK_LINK_CATEGORIES = ['AI', 'Dev', 'Web', '기타'] as const;
 export type QuickLinkCategory = (typeof QUICK_LINK_CATEGORIES)[number];
 
@@ -14,53 +16,34 @@ export type QuickLink = {
 
 export type QuickLinkPayload = Omit<QuickLink, "id">;
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const hasBody = init?.body != null;
-  const headers = init?.headers ? new Headers(init.headers) : hasBody ? new Headers() : undefined;
-  if (hasBody && headers && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const response = await fetch(path, {
-    credentials: "include",
-    ...init,
-    headers,
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Request failed (${response.status}): ${text || response.statusText}`);
-  }
-
-  const json = await response.json();
-  if (!json.ok) {
-    const message = json.error?.message || "요청이 실패했습니다.";
-    throw new Error(message);
-  }
-
-  return json.data as T;
+function throwIfError(error: { message: string } | null) {
+  if (error) throw new Error(error.message);
 }
 
 export async function getQuickLinks(): Promise<QuickLink[]> {
-  return request<QuickLink[]>("/api/quick-links");
+  const { data, error } = await getSupabaseClient()
+    .from('quick_links')
+    .select('id,label,href,description,symbol,category')
+    .order('position', { ascending: true })
+    .order('created_at', { ascending: true });
+  throwIfError(error);
+  return (data ?? []) as QuickLink[];
 }
 
 export async function createQuickLink(payload: QuickLinkPayload) {
-  await request<QuickLink>("/api/quick-links", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  const supabase = getSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('로그인이 필요합니다.');
+  const { error } = await supabase.from('quick_links').insert({ ...payload, user_id: user.id });
+  throwIfError(error);
 }
 
 export async function updateQuickLink(id: string, payload: QuickLinkPayload) {
-  await request<QuickLink>(`/api/quick-links/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
+  const { error } = await getSupabaseClient().from('quick_links').update(payload).eq('id', id);
+  throwIfError(error);
 }
 
 export async function deleteQuickLink(id: string) {
-  await request<null>(`/api/quick-links/${id}`, {
-    method: "DELETE",
-  });
+  const { error } = await getSupabaseClient().from('quick_links').delete().eq('id', id);
+  throwIfError(error);
 }

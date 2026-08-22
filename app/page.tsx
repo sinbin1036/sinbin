@@ -1,15 +1,14 @@
 import DashboardScreen from "@/app/pages/dashboard/DashboardScreen";
 import LoginScreen from "@/app/pages/login/LoginScreen";
-import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function Page() {
-  const cookieStore = await cookies();  
-  const session = cookieStore.get("session");
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     return <LoginScreen />;
   }
 
   return <DashboardScreen />;
 }
-
