@@ -8,7 +8,7 @@ GitHub 계정으로 로그인하고 사용자별 Quick Links를 관리하는 Nex
 - Next.js SSR 쿠키 세션
 - Supabase Postgres 기반 Quick Links CRUD
 - Row Level Security를 통한 사용자별 데이터 격리
-- Google 연관 검색어 자동완성
+- 사용 빈도 기반 즐겨찾기 5개를 노출하는 히어로 대시보드
 
 Spotify 연동은 아직 포함하지 않습니다.
 
@@ -48,6 +48,8 @@ values ('your-github-email@example.com');
 ```
 
 GitHub 계정이 이메일을 제공하지 않으면 allowlist 검증이 실패할 수 있으므로 GitHub 이메일 설정을 확인해야 합니다.
+
+히어로 즐겨찾기 5개(사용 빈도 계산)와 대시보드 커스텀 문구 기능을 쓰려면 `supabase/migrations/20260824_add_click_count_and_dashboard_settings.sql`을 Supabase SQL Editor에서 한 번 실행해야 합니다.
 
 ## 구조
 

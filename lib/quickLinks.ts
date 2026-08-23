@@ -12,9 +12,10 @@ export type QuickLink = {
   description: string;
   symbol: string;
   category: QuickLinkCategory;
+  click_count: number;
 };
 
-export type QuickLinkPayload = Omit<QuickLink, "id">;
+export type QuickLinkPayload = Omit<QuickLink, "id" | "click_count">;
 
 function throwIfError(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -23,7 +24,7 @@ function throwIfError(error: { message: string } | null) {
 export async function getQuickLinks(): Promise<QuickLink[]> {
   const { data, error } = await getSupabaseClient()
     .from('quick_links')
-    .select('id,label,href,description,symbol,category')
+    .select('id,label,href,description,symbol,category,click_count')
     .order('position', { ascending: true })
     .order('created_at', { ascending: true });
   throwIfError(error);
@@ -45,5 +46,13 @@ export async function updateQuickLink(id: string, payload: QuickLinkPayload) {
 
 export async function deleteQuickLink(id: string) {
   const { error } = await getSupabaseClient().from('quick_links').delete().eq('id', id);
+  throwIfError(error);
+}
+
+export async function recordQuickLinkClick(id: string, nextCount: number) {
+  const { error } = await getSupabaseClient()
+    .from('quick_links')
+    .update({ click_count: nextCount })
+    .eq('id', id);
   throwIfError(error);
 }
