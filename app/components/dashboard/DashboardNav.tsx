@@ -1,27 +1,86 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import LogoutButton from '@/app/components/LogoutButton';
 
 const NAV_LINKS = [
   { id: 'quicklaunch', label: '바로가기' },
-  { id: 'workspace', label: '워크스페이스' },
+  { id: 'github', label: 'GitHub' },
+  { id: 'spotify', label: 'Spotify' },
 ];
 
 export default function DashboardNav() {
+  const [activeSection, setActiveSection] = useState(NAV_LINKS[0].id);
+  const navRef = useRef<HTMLDivElement>(null);
+  const maskRef = useRef<HTMLDivElement>(null);
+
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  useEffect(() => {
+    const sections = NAV_LINKS.map((link) => document.getElementById(link.id)).filter(
+      (el): el is HTMLElement => el !== null,
+    );
+    if (!sections.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.find((entry) => entry.isIntersecting);
+        if (visible) setActiveSection(visible.target.id);
+      },
+      { rootMargin: '-40% 0px -40% 0px' },
+    );
+
+    sections.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const updateHole = () => {
+      const activeEl = document.querySelector(`.nav-link[data-id="${activeSection}"]`) as HTMLElement | null;
+      if (!navRef.current || !activeEl || !maskRef.current) return;
+
+      const containerRect = navRef.current.getBoundingClientRect();
+      const elRect = activeEl.getBoundingClientRect();
+
+      maskRef.current.style.setProperty('-webkit-mask-size', `100% 100%, ${elRect.width}px ${elRect.height}px`);
+      maskRef.current.style.setProperty(
+        '-webkit-mask-position',
+        `0 0, ${elRect.left - containerRect.left}px ${elRect.top - containerRect.top}px`,
+      );
+      maskRef.current.style.setProperty('mask-size', `100% 100%, ${elRect.width}px ${elRect.height}px`);
+      maskRef.current.style.setProperty(
+        'mask-position',
+        `0 0, ${elRect.left - containerRect.left}px ${elRect.top - containerRect.top}px`,
+      );
+    };
+
+    updateHole();
+    const timeout = setTimeout(updateHole, 150);
+    window.addEventListener('resize', updateHole);
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener('resize', updateHole);
+    };
+  }, [activeSection]);
+
   return (
     <div className="fixed inset-x-0 top-6 z-[70] flex justify-center px-4">
       <nav className="flex items-center gap-6 rounded-full border border-white/25 bg-white/15 px-6 py-3 text-white backdrop-blur-2xl">
-        <div className="flex items-center gap-6 text-[11px] uppercase tracking-[0.22em]">
+        <div ref={navRef} className="relative flex items-center gap-1 text-[11px] uppercase tracking-[0.22em]">
+          <div ref={maskRef} className="nav-mask pointer-events-none absolute inset-0 -z-10 rounded-full bg-white/10" />
           {NAV_LINKS.map((link) => (
             <button
               key={link.id}
               type="button"
+              data-id={link.id}
               onClick={() => scrollToSection(link.id)}
-              className="transition hover:text-[#f3d9a4]"
+              className={`nav-link rounded-full border px-3 py-1.5 transition ${
+                activeSection === link.id
+                  ? 'border-white/20 text-white'
+                  : 'border-transparent text-white/60 hover:text-white'
+              }`}
             >
               {link.label}
             </button>
