@@ -52,7 +52,7 @@ export default function DashboardScreen() {
         <HeroVideo />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_12%,rgba(0,0,0,.18)_72%,rgba(0,0,0,.3)_100%),linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.28))]" />
 
-        <div className="relative z-[3] flex min-h-screen flex-col items-center justify-center px-6 pb-10 pt-32 text-center">
+        <div className="relative z-[3] flex min-h-screen flex-col items-center justify-center px-6 pb-24 pt-24 text-center">
           <span className="rounded-full border border-white/25 bg-white/15 px-4 py-2 text-[11px] uppercase tracking-[0.3em] text-white backdrop-blur-xl">
             {dateBadge}
           </span>

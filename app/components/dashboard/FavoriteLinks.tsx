@@ -30,7 +30,7 @@ export default function FavoriteLinks() {
   if (!top5.length) return null;
 
   return (
-    <div className="mt-9 flex flex-wrap justify-center gap-4">
+    <div className="mt-9 flex flex-wrap justify-center gap-7">
       {top5.map((link) => {
         const favicon = link.symbol?.startsWith('http') ? link.symbol : toFaviconUrl(link.href);
         return (
@@ -38,16 +38,16 @@ export default function FavoriteLinks() {
             key={link.id}
             href={link.href}
             onClick={() => handleClick(link)}
-            className="silk flex h-[58px] items-center gap-2.5 rounded-full px-6 text-[10px] uppercase tracking-[0.25em] text-[#33291b]"
+            className="flex w-16 flex-col items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/80 transition hover:text-white"
           >
-            <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/70">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden drop-shadow-[0_4px_10px_rgba(0,0,0,.35)]">
               {favicon ? (
-                <img src={favicon} alt="" className="h-3.5 w-3.5" referrerPolicy="no-referrer" />
+                <img src={favicon} alt="" className="h-full w-full object-contain" referrerPolicy="no-referrer" />
               ) : (
-                link.label[0]
+                <span className="flex h-full w-full items-center justify-center rounded-full bg-white/20">{link.label[0]}</span>
               )}
             </span>
-            {link.label}
+            <span className="line-clamp-1 text-center normal-case tracking-normal">{link.label}</span>
           </a>
         );
       })}

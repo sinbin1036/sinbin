@@ -19,7 +19,7 @@ export default function LiveClock() {
   }, []);
 
   return (
-    <h1 className="serif kinetic-title text-[clamp(4.5rem,13vw,11rem)] leading-[0.82] tracking-[-.03em] drop-shadow-[0_18px_36px_rgba(0,0,0,.24)]">
+    <h1 className="serif text-[clamp(4.5rem,13vw,11rem)] leading-[0.82] tracking-[-.03em] text-white drop-shadow-[0_18px_36px_rgba(0,0,0,.24)]">
       {time ?? '--:--:--'}
     </h1>
   );

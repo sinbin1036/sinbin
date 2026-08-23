@@ -61,7 +61,7 @@ export default function HeroMessage() {
         }}
         rows={2}
         placeholder={PLACEHOLDER}
-        className="mx-auto mt-7 block w-full max-w-[760px] resize-none rounded-[2rem] border border-white/20 bg-white/10 px-6 py-5 text-center text-[18px] leading-[1.95] text-white/90 outline-none backdrop-blur-[30px] placeholder:text-white/50"
+        className="mx-auto mt-7 block w-full max-w-[760px] resize-none bg-transparent px-6 py-2 text-center text-[18px] leading-[1.95] text-white/90 outline-none placeholder:text-white/50"
       />
     );
   }
@@ -70,7 +70,7 @@ export default function HeroMessage() {
     <button
       type="button"
       onClick={startEdit}
-      className="mx-auto mt-7 block max-w-[760px] rounded-[2rem] border border-white/10 bg-white/10 px-6 py-5 text-center text-[18px] leading-[1.95] text-white/90 backdrop-blur-[30px] transition hover:border-white/25 hover:bg-white/15"
+      className="mx-auto mt-7 block max-w-[760px] px-6 py-2 text-center text-[18px] leading-[1.95] text-white/90 transition hover:text-white"
     >
       {message || PLACEHOLDER}
       {saving && <span className="ml-2 text-xs text-white/60">저장 중…</span>}
