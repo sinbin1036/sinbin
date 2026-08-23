@@ -9,8 +9,8 @@ GitHub 계정으로 로그인하고 사용자별 Quick Links를 관리하는 Nex
 - Supabase Postgres 기반 Quick Links CRUD
 - Row Level Security를 통한 사용자별 데이터 격리
 - 사용 빈도 기반 즐겨찾기 5개를 노출하는 히어로 대시보드
-
-Spotify 연동은 아직 포함하지 않습니다.
+- GitHub 커밋/PR 통계 및 최근 활동 위젯 (GraphQL + REST, 서버 라우트에서만 토큰 사용)
+- Spotify OAuth 연동 및 최근 재생·최다 재생 트랙 위젯
 
 ## 기술 스택
 
@@ -31,7 +31,18 @@ npm run dev
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-publishable-or-anon-key
 REQUIRE_ALLOWLIST=false
+
+# GitHub 통계 위젯
+GITHUB_TOKEN=github_pat_xxx           # classic PAT, read:user + repo 스코프
+GITHUB_USERNAME=your-github-username
+
+# Spotify 위젯
+SPOTIFY_CLIENT_ID=your-spotify-client-id
+SPOTIFY_CLIENT_SECRET=your-spotify-client-secret
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/api/spotify/callback
 ```
+
+`SPOTIFY_REDIRECT_URI`는 Spotify Developer Dashboard 앱의 Redirect URI와 문자 그대로 일치해야 합니다. 로컬에서 `127.0.0.1`로 등록했다면 `localhost:3000`이 아닌 `http://127.0.0.1:3000`으로 접속해야 콜백이 정상 동작합니다.
 
 ## Supabase 설정
 
@@ -50,6 +61,8 @@ values ('your-github-email@example.com');
 GitHub 계정이 이메일을 제공하지 않으면 allowlist 검증이 실패할 수 있으므로 GitHub 이메일 설정을 확인해야 합니다.
 
 히어로 즐겨찾기 5개(사용 빈도 계산)와 대시보드 커스텀 문구 기능을 쓰려면 `supabase/migrations/20260824_add_click_count_and_dashboard_settings.sql`을 Supabase SQL Editor에서 한 번 실행해야 합니다.
+
+Spotify 위젯을 쓰려면 OAuth 토큰을 사용자별로 저장하는 `spotify_tokens` 테이블을 Supabase SQL Editor에서 직접 만들어야 합니다 (컬럼: `user_id` PK/FK → `auth.users.id`, `access_token`, `refresh_token`, `expires_at`, `updated_at`; RLS로 `auth.uid() = user_id` 행만 조회/수정 가능하도록 정책 설정).
 
 ## 구조
 
@@ -71,6 +84,7 @@ npm run build
 npm run start
 ```
 
-## 향후 범위
+## 외부 API 연동
 
-Spotify 및 GitHub 활동 위젯은 현재 범위에 포함되지 않습니다. 추가할 때 외부 API 토큰과 비밀값은 브라우저가 아닌 Supabase Edge Functions에서만 처리해야 합니다.
+- GitHub: `app/api/github/stats`가 서버에서 `GITHUB_TOKEN`으로 GraphQL(`contributionsCollection`, 기간별 커밋 수)과 검색 API(`/search/commits`, `/search/issues?type:pr`, 최근 커밋·PR)를 호출합니다. 토큰은 브라우저에 노출되지 않습니다.
+- Spotify: `app/api/spotify/authorize` → Spotify OAuth 동의 → `app/api/spotify/callback`에서 code를 교환해 `spotify_tokens` 테이블에 저장합니다. `app/api/spotify/recent`가 만료된 access token을 서버에서 갱신한 뒤 `/me/player/recently-played`, `/me/top/tracks`를 호출합니다.
