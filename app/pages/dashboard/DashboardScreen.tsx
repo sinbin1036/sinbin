@@ -20,7 +20,7 @@ export default function DashboardScreen() {
     <div className="relative min-h-screen">
       <DashboardNav />
 
-      <section className="relative min-h-screen overflow-hidden">
+      <section id="hero" className="relative min-h-screen overflow-hidden">
         <HeroVideo />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_12%,rgba(0,0,0,.18)_72%,rgba(0,0,0,.3)_100%),linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.28))]" />
 
