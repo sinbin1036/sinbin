@@ -11,6 +11,7 @@ const NAV_LINKS = [
 
 export default function DashboardNav() {
   const [activeSection, setActiveSection] = useState(NAV_LINKS[0].id);
+  const [scrolled, setScrolled] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
   const maskRef = useRef<HTMLDivElement>(null);
 
@@ -33,6 +34,19 @@ export default function DashboardNav() {
     );
 
     sections.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const hero = document.getElementById('hero');
+    if (!hero) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setScrolled(!entry.isIntersecting),
+      { rootMargin: '-72px 0px 0px 0px' },
+    );
+
+    observer.observe(hero);
     return () => observer.disconnect();
   }, []);
 
@@ -67,9 +81,20 @@ export default function DashboardNav() {
 
   return (
     <div className="fixed inset-x-0 top-6 z-[70] flex justify-center px-4">
-      <nav className="flex items-center gap-6 rounded-full border border-white/25 bg-white/15 px-6 py-3 text-white backdrop-blur-2xl">
+      <nav
+        className={`flex items-center gap-6 rounded-full border px-6 py-3 backdrop-blur-2xl transition-colors duration-300 ${
+          scrolled
+            ? 'border-[rgba(131,108,74,.18)] bg-white/70 text-[#2a241c] shadow-[0_12px_30px_rgba(98,78,45,.12)]'
+            : 'border-white/25 bg-white/15 text-white'
+        }`}
+      >
         <div ref={navRef} className="relative flex items-center gap-1 text-[11px] uppercase tracking-[0.22em]">
-          <div ref={maskRef} className="nav-mask pointer-events-none absolute inset-0 -z-10 rounded-full bg-white/10" />
+          <div
+            ref={maskRef}
+            className={`nav-mask pointer-events-none absolute inset-0 -z-10 rounded-full transition-colors duration-300 ${
+              scrolled ? 'bg-[#2a241c]/[0.06]' : 'bg-white/10'
+            }`}
+          />
           {NAV_LINKS.map((link) => (
             <button
               key={link.id}
@@ -77,17 +102,21 @@ export default function DashboardNav() {
               data-id={link.id}
               onClick={() => scrollToSection(link.id)}
               className={`nav-link rounded-full border px-3 py-1.5 transition ${
-                activeSection === link.id
-                  ? 'border-white/20 text-white'
-                  : 'border-transparent text-white/60 hover:text-white'
+                scrolled
+                  ? activeSection === link.id
+                    ? 'border-[rgba(131,108,74,.35)] text-[#2a241c]'
+                    : 'border-transparent text-[#8a7c69] hover:text-[#2a241c]'
+                  : activeSection === link.id
+                    ? 'border-white/20 text-white'
+                    : 'border-transparent text-white/60 hover:text-white'
               }`}
             >
               {link.label}
             </button>
           ))}
         </div>
-        <span className="h-4 w-px bg-white/25" />
-        <LogoutButton />
+        <span className={`h-4 w-px transition-colors duration-300 ${scrolled ? 'bg-[rgba(131,108,74,.25)]' : 'bg-white/25'}`} />
+        <LogoutButton scrolled={scrolled} />
       </nav>
     </div>
   );
