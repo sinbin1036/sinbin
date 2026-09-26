@@ -14,11 +14,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Sinbin | 고속 팀을 위한 가드레일",
+    default: "Sinbin Page",
     template: "%s | Sinbin",
   },
   description:
-    "Sinbin은 플레이북, 가드레일, 실시간 컨텍스트를 한곳에 모아 프론트라인 팀이 신뢰를 해치지 않고 더 빠르게 일할 수 있게 돕습니다.",
+    "Sinbin Page",
 };
 
 export default function RootLayout({
