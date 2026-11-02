@@ -46,6 +46,8 @@ const FADE_END = 82; // 이 각도에서 완전히 사라짐
 const HOME_ROT = 2 * STEP; // + 가 맨 위(−60°)에 오는 회전값
 const MIN_INFINITE = 6; // 노드가 이보다 적으면 이음매가 보이므로 돌리지 않고 고정 배치
 const SNAP_DELAY_MS = 140;
+const ROT_TAU_MS = 90; // 회전이 목표 각도를 따라가는 빠르기(작을수록 빠름)
+const MAX_AHEAD = 2 * STEP; // 목표 각도가 화면보다 앞설 수 있는 최대치
 const ARM_TIMEOUT_MS = 2500;
 const ENTER_MS = 800;
 const LINK_BOX = { w: 64, h: 70 };
@@ -78,6 +80,8 @@ export default function QuickLaunchFan() {
   const [status, setStatus] = useState<Status>('loading');
   const [category, setCategory] = useState<QuickLinkCategory>(QUICK_LINK_CATEGORIES[0]);
   const [rot, setRot] = useState(HOME_ROT);
+  const [shownRot, setShownRot] = useState(HOME_ROT);
+  const shownRotRef = useRef(HOME_ROT);
   const [spinning, setSpinning] = useState(false);
   const [armedId, setArmedId] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
@@ -155,6 +159,8 @@ export default function QuickLaunchFan() {
       if (next === category) return; // 같은 카테고리에 다시 마우스를 올려도 회전을 초기화하지 않는다.
       setCategory(next);
       setRot(HOME_ROT);
+      shownRotRef.current = HOME_ROT; // 다른 카테고리는 새 노드라서 돌아가는 모습 없이 바로 맞춘다
+      setShownRot(HOME_ROT);
       setArmedId(null);
       setMenuId(null);
     },
@@ -170,10 +176,41 @@ export default function QuickLaunchFan() {
     [category, changeCategory],
   );
 
+  // 화면에 보이는 회전값(shownRot)은 목표값(rot)을 매 프레임 조금씩 따라간다.
+  // CSS transition으로 위치를 옮기면 두 점 사이를 직선으로 가로질러 고리 밖으로 벗어나므로,
+  // 각도 자체를 보간해서 노드가 항상 고리 위를 지나가게 한다.
+  useEffect(() => {
+    if (reducedMotion) {
+      shownRotRef.current = rot;
+      setShownRot(rot);
+      return;
+    }
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min(48, now - last);
+      last = now;
+      const cur = shownRotRef.current;
+      const diff = rot - cur;
+      const next = Math.abs(diff) < 0.05 ? rot : cur + diff * (1 - Math.exp(-dt / ROT_TAU_MS));
+      shownRotRef.current = next;
+      setShownRot(next);
+      if (next !== rot) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [rot, reducedMotion]);
+
+  // 키를 꾹 누르거나 휠을 세게 굴려도 화면보다 MAX_AHEAD 넘게 앞서 돌지 않게 한다.
+  const clampAhead = (next: number) => {
+    const shown = shownRotRef.current;
+    return Math.max(shown - MAX_AHEAD, Math.min(shown + MAX_AHEAD, next));
+  };
+
   const spin = useCallback(
     (delta: number, snap = true) => {
       if (!infinite) return;
-      setRot((prev) => prev + delta);
+      setRot((prev) => clampAhead(prev + delta));
       setSpinning(true);
       clearTimeout(snapTimer.current);
       snapTimer.current = setTimeout(() => {
@@ -186,7 +223,7 @@ export default function QuickLaunchFan() {
 
   const stepSpin = (dir: 1 | -1) => {
     if (!infinite) return;
-    setRot((prev) => Math.round(prev / STEP) * STEP + dir * STEP);
+    setRot((prev) => clampAhead(Math.round(prev / STEP) * STEP + dir * STEP));
   };
 
   // 숫자로 고른 링크가 보이는 범위 밖이면 가까운 쪽으로 돌려서 보여 준다.
@@ -259,7 +296,7 @@ export default function QuickLaunchFan() {
   // 꾹 눌러 집기: HOLD_MS 동안 누르고 있으면 아이콘을 들어 올린다.
   // 다른 카테고리 위에 놓으면 그 카테고리로, 다른 링크 위에 놓으면 그 자리로 순서를 옮긴다.
   const linkCenter = (nodeIndex: number) => {
-    const deg = slotOf(nodeIndex, nodeCount, rot) * STEP;
+    const deg = slotOf(nodeIndex, nodeCount, shownRot) * STEP;
     return { deg, x: R2 * Math.cos(rad(deg)), y: cy + R2 * Math.sin(rad(deg)) };
   };
   const dropTargetAt = (x: number, y: number, dragId: string) => {
@@ -529,13 +566,14 @@ export default function QuickLaunchFan() {
 
   // 이음매를 넘어 반대편으로 건너가는 노드는 애니메이션 없이 순간 이동시킨다.
   const nodeIds = ['__add__', ...categoryLinks.map((l) => l.id)];
-  const slots = nodeIds.map((_, i) => slotOf(i, nodeCount, rot));
+  const slots = nodeIds.map((_, i) => slotOf(i, nodeCount, shownRot));
   useEffect(() => {
     prevSlots.current = new Map(nodeIds.map((id, i) => [id, slots[i]]));
   });
 
   const transitionFor = (jumped: boolean, delayMs: number) => {
     if (reducedMotion || jumped) return 'none';
+    if (shownRot !== rot) return 'none'; // 회전 중에는 매 프레임 각도로 직접 배치한다
     if (spinning) return `transform 180ms ${EASE}, opacity 180ms`;
     return `transform 500ms ${EASE} ${delayMs}ms, opacity 300ms ${delayMs}ms`;
   };
