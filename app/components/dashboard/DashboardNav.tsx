@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import LogoutButton from '@/app/components/LogoutButton';
+import TodoDrawer from '@/app/components/dashboard/TodoDrawer';
 
 const NAV_LINKS = [
   { id: 'quicklaunch', label: '바로가기' },
@@ -116,7 +117,10 @@ export default function DashboardNav() {
           ))}
         </div>
         <span className={`h-4 w-px transition-colors duration-300 ${scrolled ? 'bg-[rgba(131,108,74,.25)]' : 'bg-white/25'}`} />
-        <LogoutButton scrolled={scrolled} />
+        <div className="flex items-center gap-2">
+          <TodoDrawer scrolled={scrolled} />
+          <LogoutButton scrolled={scrolled} />
+        </div>
       </nav>
     </div>
   );

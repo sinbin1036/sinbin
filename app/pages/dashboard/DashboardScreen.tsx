@@ -8,8 +8,6 @@ import ScrollCue from "@/app/components/dashboard/ScrollCue";
 import QuickLaunch from "@/app/components/QuickLaunch";
 import GithubSection from "@/app/components/dashboard/GithubSection";
 import SpotifySection from "@/app/components/dashboard/SpotifySection";
-import TodoDrawer from "@/app/components/dashboard/TodoDrawer";
-
 const dateBadge = new Intl.DateTimeFormat("ko-KR", {
   month: "long",
   day: "numeric",
@@ -20,7 +18,6 @@ export default function DashboardScreen() {
   return (
     <div className="relative min-h-screen">
       <DashboardNav />
-      <TodoDrawer />
 
       <section id="hero" className="relative min-h-screen overflow-hidden">
         <HeroVideo />
