@@ -56,7 +56,15 @@ export async function createQuickLink(payload: QuickLinkPayload) {
   const supabase = getSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('로그인이 필요합니다.');
-  const { error } = await supabase.from('quick_links').insert({ ...payload, user_id: user.id });
+  // 순서를 바꾼 뒤에도 새 링크가 맨 뒤에 붙도록 지금 가장 큰 position 다음 값을 준다.
+  const { data: last } = await supabase
+    .from('quick_links')
+    .select('position')
+    .order('position', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+  const position = (last?.position ?? -1) + 1;
+  const { error } = await supabase.from('quick_links').insert({ ...payload, user_id: user.id, position });
   throwIfError(error);
   notifyQuickLinksChanged();
 }
@@ -64,6 +72,16 @@ export async function createQuickLink(payload: QuickLinkPayload) {
 export async function updateQuickLink(id: string, payload: QuickLinkPayload) {
   const { error } = await getSupabaseClient().from('quick_links').update(payload).eq('id', id);
   throwIfError(error);
+  notifyQuickLinksChanged();
+}
+
+/** ids 순서대로 position을 0, 1, 2…로 다시 매긴다. 한 카테고리 안의 순서를 바꿀 때 쓴다. */
+export async function updateQuickLinkOrder(ids: string[]) {
+  const supabase = getSupabaseClient();
+  const results = await Promise.all(
+    ids.map((id, position) => supabase.from('quick_links').update({ position }).eq('id', id)),
+  );
+  results.forEach(({ error }) => throwIfError(error));
   notifyQuickLinksChanged();
 }
 

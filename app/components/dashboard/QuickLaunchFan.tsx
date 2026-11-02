@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import QuickLinkFormModal from '@/app/components/QuickLinkFormModal';
 import { announcePanelOpen, isTypingTarget, onOtherPanelOpen } from '@/lib/dashboardPanels';
@@ -13,9 +14,30 @@ import {
   QuickLinkCategory,
   recordQuickLinkClick,
   toFaviconUrl,
+  updateQuickLink,
+  updateQuickLinkOrder,
 } from '@/lib/quickLinks';
 
 type Status = 'loading' | 'ready' | 'error';
+
+// 꾹 눌러 집은 아이콘. 화면을 따라다니는 복제본 위치는 상자 왼쪽 위 기준이다.
+type Drag = {
+  link: QuickLink;
+  left: number;
+  top: number;
+  originLeft: number;
+  originTop: number;
+  grabX: number;
+  grabY: number;
+  tilt: number;
+  phase: 'lift' | 'held' | 'drop' | 'return';
+  /** 놓으면 옮겨 갈 카테고리 */
+  target: QuickLinkCategory | null;
+  /** 놓으면 이 링크 자리로 순서를 옮긴다 */
+  slotTarget: string | null;
+  /** drop 단계에서 복제본이 날아갈 위치 */
+  dropAt: { left: number; top: number } | null;
+};
 
 // 바깥 링(다이얼)은 [+, 링크1, 링크2, ...]를 원형 연결 리스트처럼 이어서 끝없이 돈다.
 const STEP = 30; // 링크 사이 각도(°)
@@ -31,6 +53,13 @@ const CAT_BOX = 66;
 const CATEGORY_KEYS: Record<string, QuickLinkCategory> = { KeyA: 'AI', KeyD: 'Dev', KeyW: 'Web', KeyE: '기타' };
 const CATEGORY_ANGLES = [-54, -18, 18, 54];
 const EASE = 'cubic-bezier(.16,1,.3,1)';
+const HOLD_MS = 300; // 이만큼 누르고 있으면 집는다
+const HOLD_SLOP = 8; // 집기 전에 이보다 많이 움직이면 집기를 취소
+const SETTLE_MS = 260; // 내려놓을 때 복제본이 자리로 가는 시간
+const RING_SPEED = { inner: -52, outer: 34 }; // 집고 있는 동안 점선 고리 회전 속도(°/s)
+const RING_DASH = '6 9';
+const RING_IDLE = { width: 1, alpha: 0.22 };
+const RING_ACTIVE = { width: 2.5, alpha: 0.6 };
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
 
@@ -56,8 +85,13 @@ export default function QuickLaunchFan() {
   const [editingLink, setEditingLink] = useState<QuickLink | null>(null);
   const [viewport, setViewport] = useState({ w: 1280, h: 800 });
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [drag, setDrag] = useState<Drag | null>(null);
 
   const rootRef = useRef<HTMLDivElement>(null);
+  const ringRefs = useRef<(SVGSVGElement | null)[]>([]);
+  const ringMotion = useRef({ inner: 0, outer: 0, v: 0 });
+  const suppressClick = useRef(false);
+  const cancelPending = useRef<() => void>(() => {});
   const handleRef = useRef<HTMLButtonElement>(null);
   const prevSlots = useRef(new Map<string, number>());
   const snapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -95,6 +129,8 @@ export default function QuickLaunchFan() {
     }
     setArmedId(null);
     setMenuId(null);
+    setDrag(null);
+    cancelPending.current();
   }, [open]);
 
   useEffect(() => {
@@ -193,6 +229,206 @@ export default function QuickLaunchFan() {
     }
   };
 
+  const moveToCategory = async (link: QuickLink, next: QuickLinkCategory) => {
+    setLinks((prev) => prev.map((l) => (l.id === link.id ? { ...l, category: next } : l)));
+    try {
+      const { label, href, description, symbol } = link;
+      await updateQuickLink(link.id, { label, href, description, symbol, category: next });
+    } catch {
+      load();
+    }
+  };
+
+  // 같은 카테고리 안에서 dragId를 targetId 자리로 옮기고, 그 순서를 저장한다.
+  const reorderInCategory = async (dragId: string, targetId: string) => {
+    const ids = categoryLinks.map((l) => l.id);
+    const from = ids.indexOf(dragId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0 || from === to) return;
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    const byId = new Map(links.map((l) => [l.id, l]));
+    let k = 0;
+    setLinks(links.map((l) => ((l.category ?? '기타') === category ? byId.get(ids[k++])! : l)));
+    try {
+      await updateQuickLinkOrder(ids);
+    } catch {
+      load();
+    }
+  };
+
+  // 꾹 눌러 집기: HOLD_MS 동안 누르고 있으면 아이콘을 들어 올린다.
+  // 다른 카테고리 위에 놓으면 그 카테고리로, 다른 링크 위에 놓으면 그 자리로 순서를 옮긴다.
+  const linkCenter = (nodeIndex: number) => {
+    const deg = slotOf(nodeIndex, nodeCount, rot) * STEP;
+    return { deg, x: R2 * Math.cos(rad(deg)), y: cy + R2 * Math.sin(rad(deg)) };
+  };
+  const dropTargetAt = (x: number, y: number, dragId: string) => {
+    const target =
+      QUICK_LINK_CATEGORIES.find((cat, i) => {
+        if (cat === category) return false;
+        const a = rad(CATEGORY_ANGLES[i]);
+        return Math.hypot(x - R1 * Math.cos(a), y - (cy + R1 * Math.sin(a))) < CAT_BOX / 2 + 12;
+      }) ?? null;
+    const slotLink = target
+      ? undefined
+      : categoryLinks.find((l, j) => {
+          if (l.id === dragId) return false;
+          const c = linkCenter(j + 1);
+          return Math.abs(c.deg) < FADE_START && Math.hypot(x - c.x, y - c.y) < 34;
+        });
+    return { target, slotTarget: slotLink?.id ?? null };
+  };
+  // 놓을 때 복제본이 날아갈 곳(상자 왼쪽 위 기준)
+  const dropPointFor = (d: Drag) => {
+    if (d.target) {
+      const a = rad(CATEGORY_ANGLES[QUICK_LINK_CATEGORIES.indexOf(d.target)]);
+      return { left: R1 * Math.cos(a) - LINK_BOX.w / 2, top: cy + R1 * Math.sin(a) - 23 };
+    }
+    const j = categoryLinks.findIndex((l) => l.id === d.slotTarget);
+    if (j < 0) return null;
+    const c = linkCenter(j + 1);
+    return { left: c.x - LINK_BOX.w / 2, top: c.y - LINK_BOX.h / 2 };
+  };
+  const dropTargetAtRef = useRef(dropTargetAt);
+  dropTargetAtRef.current = dropTargetAt;
+  const dropPointForRef = useRef(dropPointFor);
+  dropPointForRef.current = dropPointFor;
+  const reorderRef = useRef(reorderInCategory);
+  reorderRef.current = reorderInCategory;
+  const dragRef = useRef(drag);
+  dragRef.current = drag;
+  const moveToCategoryRef = useRef(moveToCategory);
+  moveToCategoryRef.current = moveToCategory;
+
+  const startPress = (e: ReactPointerEvent<HTMLDivElement>, link: QuickLink) => {
+    if (e.button !== 0 || drag || (e.target as HTMLElement).closest('button')) return; // ✎ × 버튼은 제외
+    suppressClick.current = false;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const cleanup = () => {
+      clearTimeout(timer);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', cleanup);
+      window.removeEventListener('pointercancel', cleanup);
+      cancelPending.current = () => {};
+    };
+    const onMove = (ev: PointerEvent) => {
+      if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > HOLD_SLOP) cleanup();
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      suppressClick.current = true; // 집었다 놓을 때 링크가 열리지 않게
+      setMenuId(null);
+      setArmedId(null);
+      setDrag({
+        link,
+        left: rect.left,
+        top: rect.top,
+        originLeft: rect.left,
+        originTop: rect.top,
+        grabX: startX - rect.left,
+        grabY: startY - rect.top,
+        tilt: 0,
+        phase: 'lift',
+        target: null,
+        slotTarget: null,
+        dropAt: null,
+      });
+    }, HOLD_MS);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', cleanup);
+    window.addEventListener('pointercancel', cleanup);
+    cancelPending.current = cleanup;
+  };
+
+  const holding = drag?.phase === 'lift' || drag?.phase === 'held';
+
+  // 들어 올리는 전환이 보이도록 한 프레임 뒤에 held로 바꾼다.
+  useEffect(() => {
+    if (drag?.phase !== 'lift') return;
+    let id = requestAnimationFrame(() => {
+      id = requestAnimationFrame(() => setDrag((d) => (d?.phase === 'lift' ? { ...d, phase: 'held' } : d)));
+    });
+    return () => cancelAnimationFrame(id);
+  }, [drag?.phase]);
+
+  useEffect(() => {
+    if (!holding) return;
+    let idle: ReturnType<typeof setTimeout>;
+    const onMove = (e: PointerEvent) => {
+      setDrag((d) => {
+        if (!d) return d;
+        const left = e.clientX - d.grabX;
+        const tilt = Math.max(-12, Math.min(12, d.tilt * 0.5 + (left - d.left) * 0.8));
+        return { ...d, left, top: e.clientY - d.grabY, tilt, ...dropTargetAtRef.current(e.clientX, e.clientY, d.link.id) };
+      });
+      clearTimeout(idle);
+      idle = setTimeout(() => setDrag((d) => (d ? { ...d, tilt: 0 } : d)), 90);
+    };
+    const onUp = () => {
+      const d = dragRef.current;
+      if (!d) return;
+      const dropAt = dropPointForRef.current(d);
+      if (!dropAt) {
+        setDrag({ ...d, tilt: 0, target: null, slotTarget: null, phase: 'return' });
+        return;
+      }
+      if (d.target) moveToCategoryRef.current(d.link, d.target);
+      else if (d.slotTarget) reorderRef.current(d.link.id, d.slotTarget);
+      setDrag({ ...d, tilt: 0, dropAt, phase: 'drop' });
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    document.body.style.userSelect = 'none'; // 끄는 동안 페이지 글자가 선택되지 않게
+    return () => {
+      document.body.style.userSelect = '';
+      clearTimeout(idle);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [holding]);
+
+  useEffect(() => {
+    if (drag?.phase !== 'drop' && drag?.phase !== 'return') return;
+    const id = setTimeout(() => {
+      setDrag(null);
+      suppressClick.current = false;
+    }, SETTLE_MS);
+    return () => clearTimeout(id);
+  }, [drag?.phase]);
+
+  // 집고 있는 동안 점선 고리가 서서히 돌기 시작하고, 내려놓으면 서서히 멈춘다.
+  // 매 프레임 리렌더하지 않도록 고리 요소의 style을 직접 바꾼다.
+  useEffect(() => {
+    if (reducedMotion || (!holding && ringMotion.current.v === 0)) return;
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min(48, now - last) / 1000;
+      last = now;
+      const m = ringMotion.current;
+      m.v += ((holding ? 1 : 0) - m.v) * (holding ? 0.06 : 0.03);
+      if (!holding && m.v < 0.003) m.v = 0;
+      m.inner += RING_SPEED.inner * m.v * dt;
+      m.outer += RING_SPEED.outer * m.v * dt;
+      const width = RING_IDLE.width + (RING_ACTIVE.width - RING_IDLE.width) * m.v;
+      const alpha = RING_IDLE.alpha + (RING_ACTIVE.alpha - RING_IDLE.alpha) * m.v;
+      ringRefs.current.forEach((el, i) => {
+        const circle = el?.firstElementChild as SVGCircleElement | null;
+        if (!el || !circle) return;
+        el.style.transform = `rotate(${i === 0 ? m.inner : m.outer}deg)`;
+        circle.style.strokeWidth = String(width);
+        circle.style.stroke = `rgba(255,255,255,${alpha})`;
+      });
+      if (m.v) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [holding, reducedMotion]);
+
   // 바깥 클릭 닫기
   useEffect(() => {
     if (!open) return;
@@ -233,6 +469,10 @@ export default function QuickLaunchFan() {
   const keyHandler = useRef<(e: KeyboardEvent) => void>(() => {});
   keyHandler.current = (e: KeyboardEvent) => {
     if (formOpen) return;
+    if (e.key === 'Escape' && drag && holding) {
+      setDrag({ ...drag, tilt: 0, target: null, slotTarget: null, phase: 'return' });
+      return;
+    }
     if (e.key === 'Escape' && open) {
       setOpen(false);
       return;
@@ -370,19 +610,37 @@ export default function QuickLaunchFan() {
             }}
           />
 
-          {[R1, R2].map((r) => (
-            <div
+          {/* 점선 고리: 집고 있는 동안 굵어지고 밝아지며 돈다(아래 회전 효과에서 style을 직접 바꾼다) */}
+          {[R1, R2].map((r, i) => (
+            <svg
               key={r}
+              ref={(el) => {
+                ringRefs.current[i] = el;
+              }}
               aria-hidden="true"
-              className={`absolute rounded-full border border-dashed border-white/20 transition-opacity duration-500 ${open ? 'opacity-100' : 'opacity-0'}`}
-              style={{ left: -r, top: cy - r, width: r * 2, height: r * 2 }}
-            />
+              width={r * 2}
+              height={r * 2}
+              className={`absolute overflow-visible transition-opacity duration-500 ${open ? 'opacity-100' : 'opacity-0'}`}
+              style={{ left: -r, top: cy - r }}
+            >
+              <circle
+                cx={r}
+                cy={r}
+                r={r}
+                fill="none"
+                stroke={`rgba(255,255,255,${RING_IDLE.alpha})`}
+                strokeWidth={RING_IDLE.width}
+                strokeDasharray={RING_DASH}
+                strokeLinecap="round"
+              />
+            </svg>
           ))}
 
           {/* 안쪽 링: 카테고리 */}
           {QUICK_LINK_CATEGORIES.map((cat, i) => {
             const a = rad(CATEGORY_ANGLES[i]);
             const active = cat === category;
+            const dropTarget = holding && drag?.target === cat;
             const count = links.filter((l) => (l.category ?? '기타') === cat).length;
             return (
               <button
@@ -391,7 +649,8 @@ export default function QuickLaunchFan() {
                 tabIndex={open ? 0 : -1}
                 aria-pressed={active}
                 onClick={() => changeCategory(cat)}
-                onMouseEnter={() => changeCategory(cat)}
+                // 아이콘을 들고 지나갈 때는 카테고리를 바꾸지 않는다(놓을 곳으로만 쓴다).
+                onMouseEnter={() => !holding && changeCategory(cat)}
                 className={`absolute left-0 top-0 grid place-items-center rounded-full border text-[11px] uppercase tracking-[0.14em] backdrop-blur-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f3d9a8] ${
                   active ? 'border-white bg-white text-[#2a241c]' : 'border-white/30 bg-white/10 text-white hover:bg-white/20'
                 } ${open ? 'pointer-events-auto' : ''}`}
@@ -399,10 +658,13 @@ export default function QuickLaunchFan() {
                   width: CAT_BOX,
                   height: CAT_BOX,
                   transform: open
-                    ? `translate(${R1 * Math.cos(a) - CAT_BOX / 2}px, ${cy + R1 * Math.sin(a) - CAT_BOX / 2}px) scale(${active ? 1.08 : 1})`
+                    ? `translate(${R1 * Math.cos(a) - CAT_BOX / 2}px, ${cy + R1 * Math.sin(a) - CAT_BOX / 2}px) scale(${dropTarget ? 1.16 : active ? 1.08 : 1})`
                     : `translate(${-CAT_BOX / 2}px, ${cy - CAT_BOX / 2}px) scale(.3)`,
                   opacity: open ? 1 : 0,
-                  transition: reducedMotion ? 'none' : `transform 500ms ${EASE} ${entering ? i * 30 : 0}ms, opacity 300ms, background-color 200ms`,
+                  boxShadow: dropTarget ? '0 0 0 2px rgba(255,255,255,.9), 0 0 0 8px rgba(255,255,255,.12)' : undefined,
+                  transition: reducedMotion
+                    ? 'none'
+                    : `transform ${dropTarget ? 220 : 500}ms ${EASE} ${entering ? i * 30 : 0}ms, opacity 300ms, background-color 200ms, box-shadow 200ms`,
                 }}
               >
                 <span className="leading-tight">
@@ -418,7 +680,15 @@ export default function QuickLaunchFan() {
             const deg = slots[i] * STEP;
             const a = rad(deg);
             const from = { x: R1 * Math.cos(a), y: cy + R1 * Math.sin(a) };
-            const { visible, style } = nodeStyle(id, i, LINK_BOX, R2, deg, from);
+            const { visible, style: baseStyle } = nodeStyle(id, i, LINK_BOX, R2, deg, from);
+            // 들고 있는 동안: 집은 아이콘 자리는 흐린 자국만 남기고, 나머지는 한 단계 흐리게
+            const style = drag
+              ? {
+                  ...baseStyle,
+                  opacity:
+                    baseStyle.opacity * (drag.link.id === id ? 0.2 : holding && drag.slotTarget !== id ? 0.45 : 1),
+                }
+              : baseStyle;
 
             if (id === '__add__') {
               return (
@@ -440,35 +710,34 @@ export default function QuickLaunchFan() {
             }
 
             const link = categoryLinks[i - 1];
-            const favicon = link.symbol?.startsWith('http') ? link.symbol : toFaviconUrl(link.href);
             const armed = armedId === link.id;
             return (
               <div
                 key={id}
                 data-link-id={link.id}
-                className="group absolute left-0 top-0"
-                style={{ ...style, width: LINK_BOX.w }}
+                className="group absolute left-0 top-0 select-none"
+                style={{ ...style, width: LINK_BOX.w, touchAction: 'none' }}
+                onPointerDown={(e) => startPress(e, link)}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  setMenuId(link.id);
+                  if (!drag) setMenuId(link.id);
                 }}
               >
                 <a
                   href={link.href}
+                  draggable={false}
                   tabIndex={visible ? 0 : -1}
-                  onClick={() => recordQuickLinkClick(link.id, link.click_count + 1).catch(() => {})}
+                  onClick={(e) => {
+                    if (suppressClick.current) {
+                      e.preventDefault();
+                      suppressClick.current = false;
+                      return;
+                    }
+                    recordQuickLinkClick(link.id, link.click_count + 1).catch(() => {});
+                  }}
                   className="flex w-full flex-col items-center gap-1.5 outline-none"
                 >
-                  <span className="relative grid h-[46px] w-[46px] place-items-center rounded-[15px] bg-white/90 text-lg text-[#2a241c] shadow-[0_8px_20px_rgba(0,0,0,.3)] transition group-hover:scale-110 group-has-[a:focus-visible]:ring-2 group-has-[a:focus-visible]:ring-[#f3d9a8]">
-                    {favicon ? (
-                      <img src={favicon} alt="" className="h-6 w-6" referrerPolicy="no-referrer" />
-                    ) : (
-                      link.label[0]
-                    )}
-                  </span>
-                  <span className="w-[80px] truncate text-center text-[11px] text-white/90 [text-shadow:0_1px_6px_rgba(0,0,0,.5)]">
-                    {link.label}
-                  </span>
+                  <LinkFace link={link} highlighted={holding && drag?.slotTarget === link.id} />
                 </a>
                 <span
                   className={`absolute -left-2.5 -top-2.5 flex gap-1 transition ${
@@ -501,6 +770,8 @@ export default function QuickLaunchFan() {
               </div>
             );
           })}
+
+          {drag && <LiftedLink drag={drag} reducedMotion={reducedMotion} />}
 
           <div
             className={`absolute whitespace-nowrap text-[10px] tracking-[0.16em] text-white/75 transition-opacity duration-300 [text-shadow:0_1px_6px_rgba(0,0,0,.5)] ${
@@ -542,5 +813,68 @@ export default function QuickLaunchFan() {
 
       <QuickLinkFormModal open={formOpen} link={editingLink} defaultCategory={category} onClose={closeForm} />
     </>
+  );
+}
+
+// lifted: 손에 들린 복제본, highlighted: 들고 있는 아이콘을 놓으면 이 자리로 옮겨 감
+function LinkFace({ link, lifted = false, highlighted = false }: { link: QuickLink; lifted?: boolean; highlighted?: boolean }) {
+  const favicon = link.symbol?.startsWith('http') ? link.symbol : toFaviconUrl(link.href);
+  return (
+    <>
+      <span
+        className={`grid h-[46px] w-[46px] place-items-center rounded-[15px] bg-white/90 text-lg text-[#2a241c] transition ${
+          lifted
+            ? 'shadow-[0_18px_36px_rgba(0,0,0,.45)] ring-2 ring-white/85'
+            : highlighted
+              ? 'scale-90 shadow-[0_0_0_2px_rgba(255,255,255,.9),0_0_0_8px_rgba(255,255,255,.12)]'
+              : 'shadow-[0_8px_20px_rgba(0,0,0,.3)] group-hover:scale-110 group-has-[a:focus-visible]:ring-2 group-has-[a:focus-visible]:ring-[#f3d9a8]'
+        }`}
+      >
+        {favicon ? (
+          <img src={favicon} alt="" draggable={false} className="h-6 w-6" referrerPolicy="no-referrer" />
+        ) : (
+          link.label[0]
+        )}
+      </span>
+      <span className="w-[80px] truncate text-center text-[11px] text-white/90 [text-shadow:0_1px_6px_rgba(0,0,0,.5)]">
+        {link.label}
+      </span>
+    </>
+  );
+}
+
+// 손에 들린 아이콘. 집을 때 떠오르고, 놓으면 카테고리 속으로 줄어들거나 새 자리·제자리로 내려앉는다.
+function LiftedLink({ drag, reducedMotion }: { drag: Drag; reducedMotion: boolean }) {
+  let { left, top } = drag;
+  let transform = `rotate(${drag.tilt}deg) scale(1.12)`;
+  let opacity = 1;
+  if (drag.phase === 'lift') transform = 'scale(1)';
+  if (drag.phase === 'return') {
+    left = drag.originLeft;
+    top = drag.originTop;
+    transform = 'scale(1)';
+  }
+  if (drag.phase === 'drop' && drag.dropAt) {
+    ({ left, top } = drag.dropAt);
+    transform = drag.target ? 'scale(.3)' : 'scale(1)';
+    if (drag.target) opacity = 0;
+  }
+  const settling = drag.phase === 'drop' || drag.phase === 'return';
+  const transition = reducedMotion
+    ? 'none'
+    : [
+        `transform 240ms ${EASE}`,
+        `opacity ${SETTLE_MS}ms`,
+        ...(settling ? [`left ${SETTLE_MS}ms ${EASE}`, `top ${SETTLE_MS}ms ${EASE}`] : []),
+      ].join(', ');
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute flex flex-col items-center gap-1.5"
+      style={{ left, top, width: LINK_BOX.w, transform, opacity, transition, transformOrigin: '50% 23px', zIndex: 1 }}
+    >
+      <LinkFace link={drag.link} lifted />
+    </div>
   );
 }
