@@ -8,7 +8,6 @@ import ScrollCue from "@/app/components/dashboard/ScrollCue";
 import QuickLaunch from "@/app/components/QuickLaunch";
 import GithubSection from "@/app/components/dashboard/GithubSection";
 import SpotifySection from "@/app/components/dashboard/SpotifySection";
-
 const dateBadge = new Intl.DateTimeFormat("ko-KR", {
   month: "long",
   day: "numeric",
