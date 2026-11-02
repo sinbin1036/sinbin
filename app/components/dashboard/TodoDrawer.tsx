@@ -6,6 +6,8 @@ import { createTodo, deleteTodo, deleteTodos, getTodos, Todo, updateTodoDone } f
 
 type Status = 'loading' | 'ready' | 'error';
 
+const PENDING_TIMEOUT_MS = 1500;
+
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
   return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
@@ -18,8 +20,10 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [pendingNumber, setPendingNumber] = useState('');
   const panelRef = useRef<HTMLElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
+  const shortcutsRef = useRef({ pendingNumber: '', toggleAt: (_n: number) => {}, clearDone: () => {} });
 
   const load = useCallback(() => {
     setStatus('loading');
@@ -34,7 +38,19 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
   useEffect(load, [load]);
   useEffect(() => setMounted(true), []);
 
-  // 바깥 클릭, Esc, T 단축키
+  useEffect(() => {
+    if (!pendingNumber) return;
+    const id = setTimeout(() => setPendingNumber(''), PENDING_TIMEOUT_MS);
+    return () => clearTimeout(id);
+  }, [pendingNumber]);
+
+  useEffect(() => {
+    if (!open) setPendingNumber('');
+  }, [open]);
+
+  // 바깥 클릭과 키보드 단축키
+  // T: 열기/닫기, Esc: 닫기, (패널 열림) 숫자+M: 해당 번호 체크, Alt+D: 완료 항목 지우기
+  // 키 판정은 e.code로 해서 한글 입력 상태에서도 동작한다.
   useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Node;
@@ -46,8 +62,32 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
         toggleRef.current?.focus();
         return;
       }
-      if (e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) return;
-      if (e.key === 't' || e.key === 'T' || e.key === 'ㅅ') setOpen((prev) => !prev);
+      if (e.metaKey || e.ctrlKey || isTypingTarget(e.target)) return;
+
+      if (e.altKey) {
+        if (open && e.code === 'KeyD') {
+          e.preventDefault();
+          shortcutsRef.current.clearDone();
+        }
+        return;
+      }
+
+      if (e.code === 'KeyT') {
+        setOpen((prev) => !prev);
+        return;
+      }
+      if (!open) return;
+
+      const digit = /^(?:Digit|Numpad)(\d)$/.exec(e.code)?.[1];
+      if (digit) {
+        setPendingNumber((prev) => (prev + digit).slice(-3));
+        return;
+      }
+      if (e.code === 'KeyM') {
+        const n = Number(shortcutsRef.current.pendingNumber);
+        setPendingNumber('');
+        if (n) shortcutsRef.current.toggleAt(n);
+      }
     };
     document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
@@ -101,11 +141,22 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
 
   const clearDone = () => {
     const doneIds = todos.filter((t) => t.done).map((t) => t.id);
+    if (!doneIds.length) return;
     return mutate(
       todos.filter((t) => !t.done),
       () => deleteTodos(doneIds),
       '완료 항목을 지우지 못했습니다.',
     );
+  };
+
+  // 키보드 핸들러가 항상 최신 todos를 쓰도록 매 렌더마다 갱신한다.
+  shortcutsRef.current = {
+    pendingNumber,
+    toggleAt: (n) => {
+      const todo = todos[n - 1];
+      if (todo) toggleDone(todo);
+    },
+    clearDone,
   };
 
   const remaining = todos.filter((t) => !t.done).length;
@@ -125,7 +176,9 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
     >
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <h2 className="serif text-2xl font-semibold">오늘 할 일</h2>
-        <span className="text-[10px] uppercase tracking-[0.22em] text-white/60">{remaining}개 남음</span>
+        <span className="text-[10px] uppercase tracking-[0.22em] text-white/60" aria-live="polite">
+          {pendingNumber ? `${pendingNumber}번 · M으로 체크` : `${remaining}개 남음`}
+        </span>
       </div>
 
       <form onSubmit={handleAdd} className="mb-2">
@@ -170,8 +223,14 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
 
         {status === 'ready' && todos.length > 0 && (
           <ul className="flex flex-col gap-0.5">
-            {todos.map((todo) => (
-              <li key={todo.id} className="group flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm hover:bg-white/[0.07]">
+            {todos.map((todo, index) => (
+              <li
+                key={todo.id}
+                className={`group flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm transition-colors hover:bg-white/[0.07] ${
+                  Number(pendingNumber) === index + 1 ? 'bg-white/[0.12] ring-1 ring-[#f3d9a8]/50' : ''
+                }`}
+              >
+                <span className="w-4 shrink-0 text-right text-[11px] text-white/40 tabular-nums">{index + 1}</span>
                 <button
                   type="button"
                   onClick={() => toggleDone(todo)}
@@ -207,7 +266,7 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
           {doneCount}/{todos.length} 완료
         </span>
         <button type="button" onClick={clearDone} disabled={!doneCount} className="transition hover:text-white disabled:opacity-40">
-          완료 항목 지우기
+          완료 항목 지우기 <kbd className="ml-1 font-sans text-white/40">Alt+D</kbd>
         </button>
       </div>
     </aside>
