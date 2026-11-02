@@ -58,7 +58,6 @@ export default function QuickLaunchFan() {
   const [reducedMotion, setReducedMotion] = useState(false);
 
   const rootRef = useRef<HTMLDivElement>(null);
-  const discRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLButtonElement>(null);
   const prevSlots = useRef(new Map<string, number>());
   const snapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -207,9 +206,12 @@ export default function QuickLaunchFan() {
   }, [open, formOpen]);
 
   // 휠: 바깥 링 위에서는 다이얼 회전, 안쪽 링 위에서는 카테고리 넘기기
+  // 아이콘·카테고리 버튼은 배경 원의 형제 요소라서, 다이얼 전체를 감싸는 루트에서 받아야
+  // 어디서 굴려도 페이지 대신 다이얼만 움직인다. 루트 자체는 pointer-events-none이라
+  // 다이얼 영역(배경 원과 버튼들) 밖에서는 평소처럼 페이지가 스크롤된다.
   useEffect(() => {
-    const disc = discRef.current;
-    if (!disc || !open) return;
+    const root = rootRef.current;
+    if (!root || !open) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const delta = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
@@ -223,8 +225,8 @@ export default function QuickLaunchFan() {
       }
       spin(delta * 0.12);
     };
-    disc.addEventListener('wheel', onWheel, { passive: false });
-    return () => disc.removeEventListener('wheel', onWheel);
+    root.addEventListener('wheel', onWheel, { passive: false });
+    return () => root.removeEventListener('wheel', onWheel);
   }, [open, cy, R1, spin, shiftCategory]);
 
   // 키보드: 최신 상태를 쓰도록 매 렌더마다 핸들러를 갈아 끼운다.
@@ -355,7 +357,6 @@ export default function QuickLaunchFan() {
           className="pointer-events-none fixed inset-0 z-[65] text-white"
         >
           <div
-            ref={discRef}
             className={`absolute rounded-full transition-[transform,opacity] duration-500 ${
               open ? 'pointer-events-auto scale-100 opacity-100' : 'scale-[.2] opacity-0'
             }`}
