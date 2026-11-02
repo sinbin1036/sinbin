@@ -9,7 +9,7 @@ import {
   isTypingTarget,
   releasePanel,
 } from '@/lib/dashboardPanels';
-import { createTodo, deleteTodo, deleteTodos, getTodos, Todo, updateTodoDone } from '@/lib/todos';
+import { createTodo, deleteTodo, deleteTodos, getTodos, Todo, updateTodoDone, updateTodoText } from '@/lib/todos';
 
 type Status = 'loading' | 'ready' | 'error';
 
@@ -23,9 +23,17 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [pendingNumber, setPendingNumber] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
+  const editingIdRef = useRef<string | null>(null);
   const panelRef = useRef<HTMLElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
-  const shortcutsRef = useRef({ pendingNumber: '', toggleAt: (_n: number) => {}, clearDone: () => {} });
+  const shortcutsRef = useRef({
+    pendingNumber: '',
+    toggleAt: (_n: number) => {},
+    editAt: (_n: number) => {},
+    clearDone: () => {},
+  });
 
   const load = useCallback(() => {
     setStatus('loading');
@@ -53,10 +61,12 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
     }
     releasePanel('todo');
     setPendingNumber('');
+    editingIdRef.current = null;
+    setEditingId(null);
   }, [open]);
 
   // 바깥 클릭과 키보드 단축키
-  // T: 열기/닫기, Esc: 닫기, (패널 열림) 숫자+M: 해당 번호 체크, Alt+D: 완료 항목 지우기
+  // T: 열기/닫기, Esc: 닫기, (패널 열림) 숫자+M: 해당 번호 체크, 숫자+E: 해당 번호 수정, Alt+D: 완료 항목 지우기
   // 키 판정은 e.code로 해서 한글 입력 상태에서도 동작한다.
   // 바로가기 다이얼과 같이 열려 있을 때는 T 말고는 활성 패널(마지막으로 열거나 누른 쪽)만 키를 처리한다.
   useEffect(() => {
@@ -94,10 +104,13 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
         setPendingNumber((prev) => (prev + digit).slice(-3));
         return;
       }
-      if (e.code === 'KeyM') {
+      if (e.code === 'KeyM' || e.code === 'KeyE') {
         const n = Number(shortcutsRef.current.pendingNumber);
         setPendingNumber('');
-        if (n) shortcutsRef.current.toggleAt(n);
+        if (!n) return;
+        e.preventDefault(); // E로 연 수정칸에 'e'가 입력되지 않게
+        if (e.code === 'KeyM') shortcutsRef.current.toggleAt(n);
+        else shortcutsRef.current.editAt(n);
       }
     };
     document.addEventListener('pointerdown', onPointerDown);
@@ -150,6 +163,34 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
       '삭제하지 못했습니다.',
     );
 
+  const startEdit = (todo: Todo) => {
+    editingIdRef.current = todo.id;
+    setEditingId(todo.id);
+    setEditDraft(todo.text);
+    setError(null);
+  };
+
+  const cancelEdit = () => {
+    editingIdRef.current = null;
+    setEditingId(null);
+  };
+
+  // Enter·바깥 클릭으로 저장, Esc로 취소. 비우거나 그대로면 저장하지 않는다.
+  // Enter로 저장하면 입력칸이 사라지며 blur도 올 수 있어서, ref로 한 번만 저장되게 막는다.
+  const commitEdit = () => {
+    const id = editingIdRef.current;
+    if (!id) return;
+    const todo = todos.find((t) => t.id === id);
+    const text = editDraft.trim();
+    cancelEdit();
+    if (!todo || !text || text === todo.text) return;
+    return mutate(
+      todos.map((t) => (t.id === todo.id ? { ...t, text } : t)),
+      () => updateTodoText(todo.id, text),
+      '수정 내용을 저장하지 못했습니다.',
+    );
+  };
+
   const clearDone = () => {
     const doneIds = todos.filter((t) => t.done).map((t) => t.id);
     if (!doneIds.length) return;
@@ -166,6 +207,10 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
     toggleAt: (n) => {
       const todo = todos[n - 1];
       if (todo) toggleDone(todo);
+    },
+    editAt: (n) => {
+      const todo = todos[n - 1];
+      if (todo) startEdit(todo);
     },
     clearDone,
   };
@@ -189,7 +234,7 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <h2 className="serif text-2xl font-semibold">오늘 할 일</h2>
         <span className="text-[10px] uppercase tracking-[0.22em] text-white/60" aria-live="polite">
-          {pendingNumber ? `${pendingNumber}번 · M으로 체크` : `${remaining}개 남음`}
+          {pendingNumber ? `${pendingNumber}번 · M 체크 · E 수정` : `${remaining}개 남음`}
         </span>
       </div>
 
@@ -256,17 +301,54 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
                     <span className="h-1 w-2 -translate-y-px -rotate-45 border-b-2 border-l-2 border-[#2a241c]" />
                   )}
                 </button>
-                <span className={`min-w-0 flex-1 break-words ${todo.done ? 'text-white/45 line-through' : ''}`}>
-                  {todo.text}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => remove(todo)}
-                  aria-label={`삭제: ${todo.text}`}
-                  className="px-1 text-base text-white/50 opacity-0 transition hover:text-white focus-visible:opacity-100 group-hover:opacity-100"
-                >
-                  ×
-                </button>
+                {editingId === todo.id ? (
+                  <input
+                    autoFocus
+                    value={editDraft}
+                    onChange={(e) => setEditDraft(e.target.value)}
+                    onBlur={commitEdit}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        commitEdit();
+                      }
+                      if (e.key === 'Escape') {
+                        e.stopPropagation(); // 패널은 닫지 않고 수정만 취소
+                        cancelEdit();
+                      }
+                    }}
+                    maxLength={200}
+                    aria-label={`수정: ${todo.text}`}
+                    className="min-w-0 flex-1 rounded-md border border-[#f3d9a8]/60 bg-white/10 px-1.5 py-0.5 text-sm text-white outline-none"
+                  />
+                ) : (
+                  <span
+                    onDoubleClick={() => startEdit(todo)}
+                    className={`min-w-0 flex-1 break-words ${todo.done ? 'text-white/45 line-through' : ''}`}
+                  >
+                    {todo.text}
+                  </span>
+                )}
+                {editingId !== todo.id && (
+                  <span className="flex opacity-0 transition focus-within:opacity-100 group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(todo)}
+                      aria-label={`수정: ${todo.text}`}
+                      className="px-1 text-xs text-white/50 transition hover:text-white"
+                    >
+                      ✎
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => remove(todo)}
+                      aria-label={`삭제: ${todo.text}`}
+                      className="px-1 text-base text-white/50 transition hover:text-white"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
               </li>
             ))}
           </ul>
