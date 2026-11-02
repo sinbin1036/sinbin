@@ -2,16 +2,12 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { announcePanelOpen, isTypingTarget, onOtherPanelOpen } from '@/lib/dashboardPanels';
 import { createTodo, deleteTodo, deleteTodos, getTodos, Todo, updateTodoDone } from '@/lib/todos';
 
 type Status = 'loading' | 'ready' | 'error';
 
 const PENDING_TIMEOUT_MS = 1500;
-
-function isTypingTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false;
-  return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
-}
 
 export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -45,8 +41,11 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
   }, [pendingNumber]);
 
   useEffect(() => {
-    if (!open) setPendingNumber('');
+    if (open) announcePanelOpen('todo');
+    else setPendingNumber('');
   }, [open]);
+
+  useEffect(() => onOtherPanelOpen('todo', () => setOpen(false)), []);
 
   // 바깥 클릭과 키보드 단축키
   // T: 열기/닫기, Esc: 닫기, (패널 열림) 숫자+M: 해당 번호 체크, Alt+D: 완료 항목 지우기
