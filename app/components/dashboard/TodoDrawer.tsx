@@ -2,7 +2,13 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { announcePanelOpen, isTypingTarget, onOtherPanelOpen } from '@/lib/dashboardPanels';
+import {
+  activatePanel,
+  isActivePanel,
+  isInsideDashboardPanel,
+  isTypingTarget,
+  releasePanel,
+} from '@/lib/dashboardPanels';
 import { createTodo, deleteTodo, deleteTodos, getTodos, Todo, updateTodoDone } from '@/lib/todos';
 
 type Status = 'loading' | 'ready' | 'error';
@@ -41,22 +47,28 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
   }, [pendingNumber]);
 
   useEffect(() => {
-    if (open) announcePanelOpen('todo');
-    else setPendingNumber('');
+    if (open) {
+      activatePanel('todo');
+      return;
+    }
+    releasePanel('todo');
+    setPendingNumber('');
   }, [open]);
-
-  useEffect(() => onOtherPanelOpen('todo', () => setOpen(false)), []);
 
   // 바깥 클릭과 키보드 단축키
   // T: 열기/닫기, Esc: 닫기, (패널 열림) 숫자+M: 해당 번호 체크, Alt+D: 완료 항목 지우기
   // 키 판정은 e.code로 해서 한글 입력 상태에서도 동작한다.
+  // 바로가기 다이얼과 같이 열려 있을 때는 T 말고는 활성 패널(마지막으로 열거나 누른 쪽)만 키를 처리한다.
   useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
+      if (!open) return;
       const target = e.target as Node;
-      if (open && !panelRef.current?.contains(target) && !toggleRef.current?.contains(target)) setOpen(false);
+      if (panelRef.current?.contains(target) || toggleRef.current?.contains(target)) activatePanel('todo');
+      else if (!isInsideDashboardPanel(target)) setOpen(false);
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open) {
+      const active = isActivePanel('todo');
+      if (e.key === 'Escape' && open && active) {
         setOpen(false);
         toggleRef.current?.focus();
         return;
@@ -64,7 +76,7 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
       if (e.metaKey || e.ctrlKey || isTypingTarget(e.target)) return;
 
       if (e.altKey) {
-        if (open && e.code === 'KeyD') {
+        if (open && active && e.code === 'KeyD') {
           e.preventDefault();
           shortcutsRef.current.clearDone();
         }
@@ -75,7 +87,7 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
         setOpen((prev) => !prev);
         return;
       }
-      if (!open) return;
+      if (!open || !active) return;
 
       const digit = /^(?:Digit|Numpad)(\d)$/.exec(e.code)?.[1];
       if (digit) {
@@ -165,6 +177,7 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
   const panel = (
     <aside
       ref={panelRef}
+      data-dashboard-panel
       id="todo-drawer"
       aria-label="오늘 할 일"
       aria-hidden={!open}
@@ -275,6 +288,7 @@ export default function TodoDrawer({ scrolled = false }: { scrolled?: boolean })
     <>
       <button
         ref={toggleRef}
+        data-dashboard-panel
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
