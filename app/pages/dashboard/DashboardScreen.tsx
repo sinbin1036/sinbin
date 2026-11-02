@@ -6,6 +6,7 @@ import FavoriteLinks from "@/app/components/dashboard/FavoriteLinks";
 import Reveal from "@/app/components/dashboard/Reveal";
 import ScrollCue from "@/app/components/dashboard/ScrollCue";
 import QuickLaunch from "@/app/components/QuickLaunch";
+import QuickLaunchFan from "@/app/components/dashboard/QuickLaunchFan";
 import GithubSection from "@/app/components/dashboard/GithubSection";
 import SpotifySection from "@/app/components/dashboard/SpotifySection";
 const dateBadge = new Intl.DateTimeFormat("ko-KR", {
@@ -18,6 +19,7 @@ export default function DashboardScreen() {
   return (
     <div className="relative min-h-screen">
       <DashboardNav />
+      <QuickLaunchFan />
 
       <section id="hero" className="relative min-h-screen overflow-hidden">
         <HeroVideo />
