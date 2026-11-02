@@ -5,7 +5,6 @@ import HeroMessage from "@/app/components/dashboard/HeroMessage";
 import FavoriteLinks from "@/app/components/dashboard/FavoriteLinks";
 import Reveal from "@/app/components/dashboard/Reveal";
 import ScrollCue from "@/app/components/dashboard/ScrollCue";
-import QuickLaunch from "@/app/components/QuickLaunch";
 import QuickLaunchFan from "@/app/components/dashboard/QuickLaunchFan";
 import GithubSection from "@/app/components/dashboard/GithubSection";
 import SpotifySection from "@/app/components/dashboard/SpotifySection";
@@ -36,17 +35,11 @@ export default function DashboardScreen() {
 
           <FavoriteLinks />
 
-          <ScrollCue target="quicklaunch" />
+          <ScrollCue target="github" />
         </div>
       </section>
 
       <main className="mx-auto flex max-w-5xl flex-col gap-16 px-6 pb-16 pt-20 sm:px-10">
-        <section id="quicklaunch" className="scroll-mt-28">
-          <Reveal>
-            <QuickLaunch />
-          </Reveal>
-        </section>
-
         <section id="github" className="scroll-mt-28">
           <Reveal>
             <GithubSection />

@@ -5,7 +5,6 @@ import LogoutButton from '@/app/components/LogoutButton';
 import TodoDrawer from '@/app/components/dashboard/TodoDrawer';
 
 const NAV_LINKS = [
-  { id: 'quicklaunch', label: '바로가기' },
   { id: 'github', label: 'GitHub' },
   { id: 'spotify', label: 'Spotify' },
 ];
