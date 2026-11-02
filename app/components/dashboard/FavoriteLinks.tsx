@@ -1,24 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getQuickLinks, recordQuickLinkClick, QuickLink } from '@/lib/quickLinks';
-
-function toFaviconUrl(href: string) {
-  try {
-    const url = new URL(href);
-    return `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=64`;
-  } catch {
-    return '';
-  }
-}
+import { getQuickLinks, onQuickLinksChanged, recordQuickLinkClick, QuickLink, toFaviconUrl } from '@/lib/quickLinks';
 
 export default function FavoriteLinks() {
   const [links, setLinks] = useState<QuickLink[]>([]);
 
   useEffect(() => {
-    getQuickLinks()
-      .then(setLinks)
-      .catch(() => {});
+    const load = () => {
+      getQuickLinks()
+        .then(setLinks)
+        .catch(() => {});
+    };
+    load();
+    return onQuickLinksChanged(load);
   }, []);
 
   const top5 = [...links].sort((a, b) => b.click_count - a.click_count).slice(0, 5);
