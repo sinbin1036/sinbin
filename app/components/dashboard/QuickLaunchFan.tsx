@@ -324,8 +324,8 @@ export default function QuickLaunchFan() {
   const hint = (() => {
     if (status === 'loading') return '불러오는 중…';
     if (status === 'error') return null;
-    if (!categoryLinks.length) return '비어 있어요 · + 로 추가하세요';
-    return infinite ? `${categoryLinks.length}개 · 스크롤하면 계속 돌아요 ↻` : `${categoryLinks.length}개`;
+    if (!categoryLinks.length) return '비어 있어요';
+    return '';
   })();
   const hintAngle = rad(80);
 
@@ -464,11 +464,6 @@ export default function QuickLaunchFan() {
                       <img src={favicon} alt="" className="h-6 w-6" referrerPolicy="no-referrer" />
                     ) : (
                       link.label[0]
-                    )}
-                    {i <= 9 && (
-                      <span className="absolute -right-1.5 -top-1.5 grid h-[18px] w-[18px] place-items-center rounded-full bg-[#f3d9a8] text-[10px] font-bold text-[#2a241c] tabular-nums">
-                        {i}
-                      </span>
                     )}
                   </span>
                   <span className="w-[80px] truncate text-center text-[11px] text-white/90 [text-shadow:0_1px_6px_rgba(0,0,0,.5)]">
