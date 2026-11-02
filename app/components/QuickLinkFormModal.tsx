@@ -80,6 +80,7 @@ export default function QuickLinkFormModal({ open, link, defaultCategory = 'Dev'
 
   return createPortal(
     <div
+      data-dashboard-panel
       aria-modal="true"
       role="dialog"
       aria-labelledby="quick-link-form-title"

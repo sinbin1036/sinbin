@@ -43,6 +43,11 @@ export async function updateTodoDone(id: string, done: boolean) {
   throwIfError(error);
 }
 
+export async function updateTodoText(id: string, text: string) {
+  const { error } = await getSupabaseClient().from('todos').update({ text }).eq('id', id);
+  throwIfError(error);
+}
+
 export async function deleteTodo(id: string) {
   const { error } = await getSupabaseClient().from('todos').delete().eq('id', id);
   throwIfError(error);

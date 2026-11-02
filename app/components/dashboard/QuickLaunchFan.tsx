@@ -4,7 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import QuickLinkFormModal from '@/app/components/QuickLinkFormModal';
-import { announcePanelOpen, isTypingTarget, onOtherPanelOpen } from '@/lib/dashboardPanels';
+import {
+  activatePanel,
+  isActivePanel,
+  isInsideDashboardPanel,
+  isTypingTarget,
+  releasePanel,
+} from '@/lib/dashboardPanels';
 import {
   deleteQuickLink,
   getQuickLinks,
@@ -122,15 +128,14 @@ export default function QuickLaunchFan() {
   }, [load]);
 
   useEffect(() => onQuickLinksChanged(load), [load]);
-  useEffect(() => onOtherPanelOpen('quicklaunch', () => setOpen(false)), []);
-
   useEffect(() => {
     if (open) {
-      announcePanelOpen('quicklaunch');
+      activatePanel('quicklaunch');
       setEntering(true);
       const id = setTimeout(() => setEntering(false), ENTER_MS);
       return () => clearTimeout(id);
     }
+    releasePanel('quicklaunch');
     setArmedId(null);
     setMenuId(null);
     setDrag(null);
@@ -466,13 +471,15 @@ export default function QuickLaunchFan() {
     return () => cancelAnimationFrame(raf);
   }, [holding, reducedMotion]);
 
-  // 바깥 클릭 닫기
+  // 다이얼을 누르면 활성 패널이 되고, 대시보드 패널 바깥을 누르면 닫는다.
+  // 할 일 패널 안을 누를 때는 닫지 않아서 두 패널을 같이 열어 둘 수 있다.
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: PointerEvent) => {
       if (formOpen) return;
       const target = e.target as Node;
-      if (!rootRef.current?.contains(target) && !handleRef.current?.contains(target)) setOpen(false);
+      if (rootRef.current?.contains(target) || handleRef.current?.contains(target)) activatePanel('quicklaunch');
+      else if (!isInsideDashboardPanel(target)) setOpen(false);
     };
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
@@ -510,7 +517,9 @@ export default function QuickLaunchFan() {
       setDrag({ ...drag, tilt: 0, target: null, slotTarget: null, phase: 'return' });
       return;
     }
-    if (e.key === 'Escape' && open) {
+    // Q 말고는 할 일 패널과 겹칠 수 있는 키라서, 다이얼이 활성 패널일 때만 처리한다.
+    const active = isActivePanel('quicklaunch');
+    if (e.key === 'Escape' && open && active) {
       setOpen(false);
       return;
     }
@@ -520,7 +529,7 @@ export default function QuickLaunchFan() {
       setOpen((prev) => !prev);
       return;
     }
-    if (!open) return;
+    if (!open || !active) return;
 
     const digit = /^(?:Digit|Numpad)([1-9])$/.exec(e.code)?.[1];
     if (digit) {
@@ -613,6 +622,7 @@ export default function QuickLaunchFan() {
     <>
       <button
         ref={handleRef}
+        data-dashboard-panel
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
@@ -627,6 +637,7 @@ export default function QuickLaunchFan() {
       {createPortal(
         <div
           ref={rootRef}
+          data-dashboard-panel
           id="quicklaunch-fan"
           role="dialog"
           aria-label="바로가기 다이얼"
