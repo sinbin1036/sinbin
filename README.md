@@ -99,6 +99,7 @@ values ('your-github-email@example.com');
 
 - 히어로 즐겨찾기(사용 빈도 계산)와 대시보드 커스텀 문구 기능: `supabase/migrations/20260824_add_click_count_and_dashboard_settings.sql`을 SQL Editor에서 실행
 - Spotify 위젯: `spotify_tokens` 테이블을 직접 생성 (`user_id` PK/FK → `auth.users.id`, `access_token`, `refresh_token`, `expires_at`, `updated_at`; RLS로 `auth.uid() = user_id` 행만 조회/수정 가능하도록 설정)
+- 할 일 목록(`T` 키로 열고 닫기): `supabase/migrations/20261102_add_todos.sql`을 SQL Editor에서 실행
 
 ## 📁 구조
 
